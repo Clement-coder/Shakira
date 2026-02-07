@@ -82,6 +82,9 @@ export default function ChatView({
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showScrollTopButton, setShowScrollTopButton] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
+  const [showInputEmojiPicker, setShowInputEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -121,11 +124,17 @@ export default function ChatView({
         table: 'messages',
         filter: `conversation_id=eq.${conversationId}`,
       }, (payload) => {
-        setMessages((prev) => [...prev, payload.new as Message]);
+        setMessages((prev) => [...prev, { ...payload.new as Message, reactions: [] }]);
         scrollToBottom();
-        // Update last read timestamp when viewing messages
         const lastReadKey = `last_read_${conversationId}_${user!.id}`;
         localStorage.setItem(lastReadKey, new Date().toISOString());
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'message_reactions',
+      }, () => {
+        fetchMessages(); // Refresh when reactions change
       })
       .on('postgres_changes', {
         event: '*',
@@ -164,13 +173,33 @@ export default function ChatView({
   };
 
   const fetchMessages = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
 
-    setMessages(data || []);
+    if (error) {
+      console.error('Error fetching messages:', error);
+    }
+
+    // Fetch reactions separately
+    if (data) {
+      const messageIds = data.map(m => m.id);
+      const { data: reactions } = await supabase
+        .from('message_reactions')
+        .select('*')
+        .in('message_id', messageIds);
+
+      // Attach reactions to messages
+      const messagesWithReactions = data.map(msg => ({
+        ...msg,
+        reactions: reactions?.filter(r => r.message_id === msg.id) || []
+      }));
+
+      setMessages(messagesWithReactions);
+    }
+
     setLoading(false);
   };
 
@@ -244,7 +273,6 @@ export default function ChatView({
     setNewMessage('');
     updateTypingStatus(false);
     
-    // Clear draft from localStorage
     localStorage.removeItem(`draft_${conversationId}`);
 
     await supabase.from('messages').insert({
@@ -252,7 +280,38 @@ export default function ChatView({
       sender_id: user!.id,
       content: messageContent,
       message_type: 'text',
+      reply_to_message_id: replyingTo?.id || null,
     });
+
+    setReplyingTo(null);
+  };
+
+  const addReaction = async (messageId: string, emoji: string) => {
+    await supabase.from('message_reactions').insert({
+      message_id: messageId,
+      user_id: user!.id,
+      reaction: emoji,
+    });
+    setShowEmojiPicker(null);
+    fetchMessages();
+  };
+
+  const removeReaction = async (messageId: string, emoji: string) => {
+    await supabase
+      .from('message_reactions')
+      .delete()
+      .eq('message_id', messageId)
+      .eq('user_id', user!.id)
+      .eq('reaction', emoji);
+    fetchMessages();
+  };
+
+  const toggleReaction = async (messageId: string, emoji: string, hasReacted: boolean) => {
+    if (hasReacted) {
+      await removeReaction(messageId, emoji);
+    } else {
+      await addReaction(messageId, emoji);
+    }
   };
 
   if (loading || !otherUser) {
@@ -312,11 +371,12 @@ export default function ChatView({
         {messages.map((msg, idx) => {
           const isSent = msg.sender_id === user!.id;
           const showAvatar = idx === 0 || messages[idx - 1].sender_id !== msg.sender_id;
+          const replyToMsg = msg.reply_to_message_id ? messages.find(m => m.id === msg.reply_to_message_id) : null;
 
           return (
             <div
               key={msg.id}
-              className={`flex gap-2 animate-slide-up ${isSent ? 'justify-end' : 'justify-start'}`}
+              className={`flex gap-2 animate-slide-up group ${isSent ? 'justify-end' : 'justify-start'}`}
             >
               {!isSent && showAvatar && (
                 <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
@@ -327,29 +387,102 @@ export default function ChatView({
                   )}
                 </div>
               )}
-              {!isSent && !showAvatar && <div className="w-8" />}
-              <div
-                className={`max-w-[70%] px-4 py-2 rounded-2xl ${
-                  isSent
-                    ? 'bg-[var(--message-sent)] text-white rounded-br-sm'
-                    : 'bg-[var(--message-received)] text-[var(--text-primary)] rounded-bl-sm'
-                }`}
-              >
-                <p className="break-words">{msg.content}</p>
-                <div className={`flex items-center gap-1 mt-1 ${isSent ? 'justify-end' : 'justify-start'}`}>
-                  <p className={`text-xs ${isSent ? 'text-white/70' : 'text-[var(--text-secondary)]'}`}>
-                    {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                  </p>
-                  {isSent && (
-                    <MessageStatusIcon 
-                      messageId={msg.id}
-                      conversationId={conversationId}
-                      otherUserId={otherUser.id}
-                      messageTime={msg.created_at}
-                      otherUserOnline={otherUser.is_online}
-                    />
+              {!isSent && !showAvatar && <div className="w-8 sm:w-8" />}
+              
+              <div className="relative max-w-[75%] sm:max-w-[70%]">
+                <div
+                  className={`inline-block px-3 sm:px-4 py-2 rounded-2xl ${
+                    isSent
+                      ? 'bg-[var(--message-sent)] text-white rounded-br-sm'
+                      : 'bg-[var(--message-received)] text-[var(--text-primary)] rounded-bl-sm'
+                  }`}
+                >
+                  {replyToMsg && (
+                    <div className="mb-2 pb-2 border-l-2 border-white/30 pl-2 text-xs opacity-70">
+                      <div className="font-semibold">Replying to</div>
+                      <div className="truncate">{replyToMsg.content}</div>
+                    </div>
                   )}
+                  <p className="break-words">{msg.content}</p>
+                  
+                  {/* Reactions */}
+                  {msg.reactions && msg.reactions.length > 0 && (
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      {Object.entries(
+                        msg.reactions.reduce((acc: any, r: any) => {
+                          acc[r.reaction] = acc[r.reaction] || [];
+                          acc[r.reaction].push(r.user_id);
+                          return acc;
+                        }, {})
+                      ).map(([emoji, userIds]: [string, any]) => {
+                        const hasReacted = userIds.includes(user!.id);
+                        return (
+                          <button
+                            key={emoji}
+                            onClick={() => toggleReaction(msg.id, emoji, hasReacted)}
+                            className={`text-xs px-2 py-0.5 rounded-full transition-all hover:scale-110 ${
+                              hasReacted 
+                                ? 'bg-[var(--accent)]/30 ring-1 ring-[var(--accent)]' 
+                                : 'bg-white/10'
+                            }`}
+                          >
+                            {emoji} {userIds.length}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  <div className={`flex items-center gap-1 mt-1 ${isSent ? 'justify-end' : 'justify-start'}`}>
+                    <p className={`text-xs ${isSent ? 'text-white/70' : 'text-[var(--text-secondary)]'}`}>
+                      {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                    </p>
+                    {isSent && (
+                      <MessageStatusIcon 
+                        messageId={msg.id}
+                        conversationId={conversationId}
+                        otherUserId={otherUser.id}
+                        messageTime={msg.created_at}
+                        otherUserOnline={otherUser.is_online}
+                      />
+                    )}
+                  </div>
                 </div>
+
+              {/* Message Actions */}
+              <div className={`absolute top-0 ${isSent ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity gap-1 px-2`}>
+                <button
+                  onClick={() => setReplyingTo(msg)}
+                  className="p-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] rounded-full transition-colors shadow-md"
+                  title="Reply"
+                >
+                  <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
+                  className="p-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] rounded-full transition-colors shadow-md"
+                  title="React"
+                >
+                  <Smile className="w-4 h-4 text-[var(--text-primary)]" />
+                </button>
+              </div>
+
+              {/* Emoji Picker */}
+              {showEmojiPicker === msg.id && (
+                <div className={`absolute ${isSent ? 'right-0' : 'left-0'} top-full mt-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg shadow-lg p-2 flex gap-1 z-10`}>
+                  {['❤️', '👍', '😂', '😮', '😢', '🙏'].map(emoji => (
+                    <button
+                      key={emoji}
+                      onClick={() => addReaction(msg.id, emoji)}
+                      className="text-xl hover:scale-125 transition-transform"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
               </div>
             </div>
           );
@@ -396,8 +529,51 @@ export default function ChatView({
       )}
 
       {/* Input - Sticky */}
-      <form onSubmit={sendMessage} className="sticky bottom-0 bg-[var(--bg-primary)] p-2 sm:p-3 md:p-4 border-t border-[var(--border)]">
-        <div className="flex items-center gap-1.5 sm:gap-2">
+      <form onSubmit={sendMessage} className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border)]">
+        {replyingTo && (
+          <div className="px-4 py-2 bg-[var(--bg-secondary)] flex items-center justify-between">
+            <div className="flex-1 border-l-2 border-[var(--accent)] pl-3">
+              <div className="text-xs text-[var(--accent)] font-semibold">Replying to</div>
+              <div className="text-sm text-[var(--text-primary)] truncate">{replyingTo.content}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyingTo(null)}
+              className="p-1 hover:bg-[var(--bg-tertiary)] rounded-full transition-colors"
+            >
+              <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+        <div className="p-2 sm:p-3 md:p-4 flex items-center gap-1.5 sm:gap-2 relative">
+          <button
+            type="button"
+            onClick={() => setShowInputEmojiPicker(!showInputEmojiPicker)}
+            className="p-2 hover:bg-[var(--bg-secondary)] rounded-full transition-colors"
+          >
+            <Smile className="w-5 h-5 text-[var(--text-secondary)]" />
+          </button>
+          
+          {showInputEmojiPicker && (
+            <div className="absolute bottom-full left-2 mb-2 bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg shadow-lg p-3 grid grid-cols-6 gap-2 z-10">
+              {['😀', '😂', '😍', '🥰', '😎', '🤔', '😊', '👍', '❤️', '🔥', '✨', '🎉', '👏', '🙏', '💯', '✅', '❌', '⭐'].map(emoji => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    setNewMessage(prev => prev + emoji);
+                    setShowInputEmojiPicker(false);
+                  }}
+                  className="text-2xl hover:scale-125 transition-transform"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+          
           <input
             type="text"
             value={newMessage}

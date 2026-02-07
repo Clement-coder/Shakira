@@ -44,6 +44,17 @@ export default function SettingsView({ onBack }: { onBack: () => void }) {
     if (key === 'theme') {
       document.documentElement.classList.toggle('dark', value === 'dark');
     }
+
+    // Update profile's is_online status when toggling online status
+    if (key === 'show_online_status') {
+      await supabase
+        .from('profiles')
+        .update({ 
+          is_online: value,
+          last_seen: new Date().toISOString()
+        })
+        .eq('id', user.id);
+    }
   };
 
   if (loading || !settings) {

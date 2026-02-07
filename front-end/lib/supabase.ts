@@ -41,7 +41,13 @@ export type Message = {
   message_type: 'text' | 'image' | 'file';
   file_url: string | null;
   file_name: string | null;
+  reply_to_message_id: string | null;
   created_at: string;
+  reactions?: Array<{
+    id: string;
+    user_id: string;
+    reaction: string;
+  }>;
 };
 
 export type MessageStatus = {
