@@ -14,6 +14,7 @@ type ConversationWithDetails = {
   lastMessage: string | null;
   lastMessageTime: string | null;
   unreadCount: number;
+  draft: string | null;
 };
 
 export default function ChatList({
@@ -85,16 +86,24 @@ export default function ChatList({
 
         const { data: lastMessage } = await supabase
           .from('messages')
-          .select('content, created_at')
+          .select('content, created_at, sender_id')
           .eq('conversation_id', convId)
           .order('created_at', { ascending: false })
           .limit(1)
           .single();
 
+        let lastMessagePreview = 'No messages yet';
+        if (lastMessage) {
+          const isYou = lastMessage.sender_id === user.id;
+          const prefix = isYou ? 'You: ' : '';
+          const content = lastMessage.content || '';
+          lastMessagePreview = prefix + (content.length > 30 ? content.substring(0, 30) + '...' : content);
+        }
+
         return {
           id: convId,
           otherUser: otherUserProfile!,
-          lastMessage: lastMessage?.content || null,
+          lastMessage: lastMessagePreview,
           lastMessageTime: lastMessage?.created_at || null,
           unreadCount: 0,
         };
@@ -113,8 +122,8 @@ export default function ChatList({
   return (
     <>
       <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="p-3 sm:p-4 border-b border-[var(--border)]">
+        {/* Header - Sticky */}
+        <div className="sticky top-0 z-10 bg-[var(--bg-primary)] p-3 sm:p-4 border-b border-[var(--border)]">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Messages</h1>
             <div className="flex gap-1 sm:gap-2">
@@ -201,7 +210,7 @@ export default function ChatList({
                       )}
                     </div>
                     <p className="text-sm text-[var(--text-secondary)] truncate">
-                      {conv.lastMessage || 'No messages yet'}
+                      {conv.lastMessage}
                     </p>
                   </div>
                 </button>

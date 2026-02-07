@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, Profile, Message } from '@/lib/supabase';
-import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile } from 'lucide-react';
+import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function ChatView({
@@ -19,6 +19,7 @@ export default function ChatView({
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -84,6 +85,12 @@ export default function ChatView({
     setLoading(false);
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchMessages();
+    setTimeout(() => setRefreshing(false), 500);
+  };
+
   const handleTypingChange = async (payload: any) => {
     if (payload.new.user_id !== user!.id) {
       setIsTyping(payload.new.is_typing);
@@ -145,8 +152,8 @@ export default function ChatView({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-3 sm:p-4 border-b border-[var(--border)] flex items-center gap-2 sm:gap-3">
+      {/* Header - Sticky */}
+      <div className="sticky top-0 z-10 bg-[var(--bg-primary)] p-3 sm:p-4 border-b border-[var(--border)] flex items-center gap-2 sm:gap-3">
         <button
           onClick={onBack}
           className="md:hidden p-1.5 sm:p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors flex-shrink-0"
@@ -169,6 +176,13 @@ export default function ChatView({
             {otherUser.is_online ? 'Online' : `Last seen ${formatDistanceToNow(new Date(otherUser.last_seen), { addSuffix: true })}`}
           </p>
         </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-5 h-5 text-[var(--text-primary)] ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {/* Messages */}
@@ -200,9 +214,20 @@ export default function ChatView({
                 }`}
               >
                 <p className="break-words">{msg.content}</p>
-                <p className={`text-xs mt-1 ${isSent ? 'text-white/70' : 'text-[var(--text-secondary)]'}`}>
-                  {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
-                </p>
+                <div className={`flex items-center gap-1 mt-1 ${isSent ? 'justify-end' : 'justify-start'}`}>
+                  <p className={`text-xs ${isSent ? 'text-white/70' : 'text-[var(--text-secondary)]'}`}>
+                    {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
+                  </p>
+                  {isSent && (
+                    <div className="flex items-center">
+                      {otherUser.is_online ? (
+                        <CheckCheck className="w-3 h-3 text-blue-400" />
+                      ) : (
+                        <Check className="w-3 h-3 text-white/70" />
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
