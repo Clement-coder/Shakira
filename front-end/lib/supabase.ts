@@ -42,6 +42,7 @@ export type Message = {
   file_url: string | null;
   file_name: string | null;
   reply_to_message_id: string | null;
+  link_preview?: string | null;
   created_at: string;
   reactions?: Array<{
     id: string;

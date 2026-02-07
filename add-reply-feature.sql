@@ -2,6 +2,10 @@
 ALTER TABLE messages 
 ADD COLUMN IF NOT EXISTS reply_to_message_id UUID REFERENCES messages(id) ON DELETE SET NULL;
 
+-- Add link_preview column to messages table
+ALTER TABLE messages 
+ADD COLUMN IF NOT EXISTS link_preview TEXT;
+
 -- Add index for better query performance
 CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_message_id);
 

@@ -6,6 +6,7 @@ import { supabase, Profile, Message } from '@/lib/supabase';
 import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck, ArrowDown, ArrowUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import UserProfileModal from './user-profile-modal';
+import ForwardModal from './forward-modal';
 
 // Message Status Icon Component
 function MessageStatusIcon({ 
@@ -85,6 +86,11 @@ export default function ChatView({
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const [showInputEmojiPicker, setShowInputEmojiPicker] = useState(false);
+  const [linkPreview, setLinkPreview] = useState<{ url: string; title: string; image?: string } | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -266,6 +272,16 @@ export default function ChatView({
       localStorage.removeItem(`draft_${conversationId}`);
     }
 
+    // Detect and preview links
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = value.match(urlRegex);
+    
+    if (urls && urls.length > 0 && !loadingPreview) {
+      fetchLinkPreview(urls[0]);
+    } else if (!urls) {
+      setLinkPreview(null);
+    }
+
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
@@ -282,7 +298,10 @@ export default function ChatView({
     if (!newMessage.trim()) return;
 
     const messageContent = newMessage.trim();
+    const previewData = linkPreview;
+    
     setNewMessage('');
+    setLinkPreview(null);
     updateTypingStatus(false);
     
     localStorage.removeItem(`draft_${conversationId}`);
@@ -293,6 +312,7 @@ export default function ChatView({
       content: messageContent,
       message_type: 'text',
       reply_to_message_id: replyingTo?.id || null,
+      link_preview: previewData ? JSON.stringify(previewData) : null,
     });
 
     setReplyingTo(null);
@@ -329,6 +349,38 @@ export default function ChatView({
       }
       return <span key={index}>{part}</span>;
     });
+  };
+
+  const fetchLinkPreview = async (url: string) => {
+    setLoadingPreview(true);
+    try {
+      // Simple preview - extract domain and create basic preview
+      const urlObj = new URL(url);
+      setLinkPreview({
+        url: url,
+        title: urlObj.hostname,
+        image: `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`
+      });
+    } catch (error) {
+      console.error('Error fetching link preview:', error);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  const copyMessage = async (content: string, messageId: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopySuccess(messageId);
+      setTimeout(() => setCopySuccess(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const forwardMessage = (message: Message) => {
+    setForwardingMessage(message);
+    setShowForwardModal(true);
   };
 
   const removeReaction = async (messageId: string, emoji: string) => {
@@ -440,6 +492,31 @@ export default function ChatView({
                   )}
                   <p className="break-words">{renderMessageContent(msg.content || '')}</p>
                   
+                  {/* Link Preview */}
+                  {msg.link_preview && (() => {
+                    try {
+                      const preview = JSON.parse(msg.link_preview);
+                      return (
+                        <a
+                          href={preview.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block mt-2 border border-white/20 rounded-lg overflow-hidden hover:border-white/40 transition-colors"
+                        >
+                          {preview.image && (
+                            <img src={preview.image} alt="" className="w-full h-32 object-cover" />
+                          )}
+                          <div className="p-2 bg-black/10">
+                            <div className="font-semibold text-sm truncate">{preview.title}</div>
+                            <div className="text-xs opacity-70 truncate">{preview.url}</div>
+                          </div>
+                        </a>
+                      );
+                    } catch {
+                      return null;
+                    }
+                  })()}
+                  
                   {/* Reactions */}
                   {msg.reactions && msg.reactions.length > 0 && (
                     <div className="flex gap-1 mt-1 flex-wrap">
@@ -493,6 +570,30 @@ export default function ChatView({
                 >
                   <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => copyMessage(msg.content || '', msg.id)}
+                  className="p-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] rounded-full transition-colors shadow-md"
+                  title="Copy"
+                >
+                  {copySuccess === msg.id ? (
+                    <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
+                <button
+                  onClick={() => forwardMessage(msg)}
+                  className="p-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] rounded-full transition-colors shadow-md"
+                  title="Forward"
+                >
+                  <svg className="w-4 h-4 text-[var(--text-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </button>
                 <button
@@ -565,6 +666,27 @@ export default function ChatView({
 
       {/* Input - Sticky */}
       <form onSubmit={sendMessage} className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border)]">
+        {linkPreview && (
+          <div className="px-4 py-2 bg-[var(--bg-secondary)] flex items-center gap-3">
+            {linkPreview.image && (
+              <img src={linkPreview.image} alt="" className="w-12 h-12 rounded object-cover" />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-[var(--accent)] font-semibold">Link Preview</div>
+              <div className="text-sm text-[var(--text-primary)] truncate">{linkPreview.title}</div>
+              <div className="text-xs text-[var(--text-secondary)] truncate">{linkPreview.url}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLinkPreview(null)}
+              className="p-1 hover:bg-[var(--bg-tertiary)] rounded-full transition-colors"
+            >
+              <svg className="w-5 h-5 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
         {replyingTo && (
           <div className="px-4 py-2 bg-[var(--bg-secondary)] flex items-center justify-between">
             <div className="flex-1 border-l-2 border-[var(--accent)] pl-3">
@@ -634,6 +756,18 @@ export default function ChatView({
           onMessage={() => setShowUserProfile(false)}
           conversationId={conversationId}
           onDelete={onBack}
+        />
+      )}
+
+      {showForwardModal && forwardingMessage && (
+        <ForwardModal
+          isOpen={showForwardModal}
+          onClose={() => {
+            setShowForwardModal(false);
+            setForwardingMessage(null);
+          }}
+          messageContent={forwardingMessage.content || ''}
+          currentUserId={user!.id}
         />
       )}
     </div>
