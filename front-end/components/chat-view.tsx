@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, Profile, Message } from '@/lib/supabase';
-import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck } from 'lucide-react';
+import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck, ArrowDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import UserProfileModal from './user-profile-modal';
 
@@ -80,7 +80,9 @@ export default function ChatView({
   const [isTyping, setIsTyping] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   useEffect(() => {
@@ -177,6 +179,17 @@ export default function ChatView({
     setTimeout(() => setRefreshing(false), 500);
   };
 
+  const handleScroll = () => {
+    if (!messagesContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    setShowScrollButton(!isNearBottom);
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const handleTypingChange = async (payload: any) => {
     if (payload.new.user_id !== user!.id) {
       setIsTyping(payload.new.is_typing);
@@ -235,10 +248,6 @@ export default function ChatView({
     });
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   if (loading || !otherUser) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -288,7 +297,11 @@ export default function ChatView({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 scrollbar-hide">
+      <div 
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 scrollbar-hide relative"
+      >
         {messages.map((msg, idx) => {
           const isSent = msg.sender_id === user!.id;
           const showAvatar = idx === 0 || messages[idx - 1].sender_id !== msg.sender_id;
@@ -354,6 +367,16 @@ export default function ChatView({
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Scroll to Bottom Button */}
+      {showScrollButton && (
+        <button
+          onClick={scrollToBottom}
+          className="fixed bottom-20 right-4 sm:right-6 p-3 bg-[var(--accent)] text-white rounded-full shadow-lg hover:bg-[var(--accent-hover)] transition-all animate-bounce z-10"
+        >
+          <ArrowDown className="w-5 h-5" />
+        </button>
+      )}
 
       {/* Input - Sticky */}
       <form onSubmit={sendMessage} className="sticky bottom-0 bg-[var(--bg-primary)] p-2 sm:p-3 md:p-4 border-t border-[var(--border)]">
