@@ -205,14 +205,15 @@ export default function UserProfileModal({
 
           {/* Actions */}
           <div className="space-y-2 sm:space-y-3">
+            <button
+              onClick={handleShareProfile}
+              className="w-full py-2.5 sm:py-3 bg-blue-50 text-blue-600 font-medium rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+            >
+              <Share2 className="w-4 h-4" />
+              Share Profile
+            </button>
+            
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-              <button
-                onClick={handleShareProfile}
-                className="flex-1 py-2.5 sm:py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
-              >
-                <Share2 className="w-4 h-4" />
-                Share Profile
-              </button>
               <button
                 onClick={onClose}
                 className="flex-1 py-2.5 sm:py-3 bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors text-sm sm:text-base"

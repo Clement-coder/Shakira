@@ -15,6 +15,7 @@ type ConversationWithDetails = {
   lastMessageTime: string | null;
   unreadCount: number;
   draft: string | null;
+  isFavourite: boolean;
 };
 
 export default function ChatList({
@@ -36,6 +37,7 @@ export default function ChatList({
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'groups' | 'favourites'>('all');
 
   useEffect(() => {
     if (!user) return;
@@ -149,10 +151,22 @@ export default function ChatList({
     setLoading(false);
   };
 
-  const filteredConversations = conversations.filter((conv) =>
-    conv.otherUser.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.otherUser.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = conversations
+    .filter((conv) => {
+      // Search filter
+      const matchesSearch = conv.otherUser.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        conv.otherUser.full_name?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (!matchesSearch) return false;
+
+      // Category filter
+      if (filter === 'unread') return conv.unreadCount > 0;
+      if (filter === 'read') return conv.unreadCount === 0;
+      if (filter === 'groups') return false; // Groups not implemented yet
+      if (filter === 'favourites') return false; // Favourites not implemented yet
+      
+      return true; // 'all'
+    });
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -196,7 +210,7 @@ export default function ChatList({
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-secondary)]" />
             <input
               type="text"
@@ -205,6 +219,29 @@ export default function ChatList({
               placeholder="Search conversations..."
               className="w-full pl-10 pr-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]"
             />
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'unread', label: 'Unread' },
+              { key: 'read', label: 'Read' },
+              { key: 'groups', label: 'Groups' },
+              { key: 'favourites', label: 'Favourites' },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setFilter(tab.key as any)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  filter === tab.key
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
