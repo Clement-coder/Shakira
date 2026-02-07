@@ -49,13 +49,12 @@ export default function UserProfileModal({
   }, [currentUser, user.id]);
 
   const handleDeleteConversation = async () => {
-    if (!conversationId || !confirm('Delete this conversation? This cannot be undone.')) return;
+    if (!conversationId) return;
     
     setDeleting(true);
     setError('');
     
     try {
-      // Delete conversation (cascade will delete messages and participants)
       const { error: deleteError } = await supabase
         .from('conversations')
         .delete()
@@ -63,8 +62,9 @@ export default function UserProfileModal({
       
       if (deleteError) throw deleteError;
       
+      setShowDeleteConfirm(false);
       onClose();
-      window.location.reload(); // Refresh to update list
+      window.location.reload();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -73,14 +73,11 @@ export default function UserProfileModal({
   };
 
   const handleBlockUser = async () => {
-    if (isBlocked) {
-      // Unblock user
-      if (!confirm(`Unblock ${user.username}?`)) return;
-      
-      setBlocking(true);
-      setError('');
-      
-      try {
+    setBlocking(true);
+    setError('');
+    
+    try {
+      if (isBlocked) {
         const { error: unblockError } = await supabase
           .from('blocked_users')
           .delete()
@@ -90,20 +87,7 @@ export default function UserProfileModal({
         if (unblockError) throw unblockError;
         
         setIsBlocked(false);
-        alert(`${user.username} has been unblocked`);
-      } catch (err: any) {
-        setError(err.message || 'Failed to unblock user');
-      } finally {
-        setBlocking(false);
-      }
-    } else {
-      // Block user
-      if (!confirm(`Block ${user.username}? They won't be able to message you.`)) return;
-      
-      setBlocking(true);
-      setError('');
-      
-      try {
+      } else {
         const { error: blockError } = await supabase
           .from('blocked_users')
           .insert({
@@ -114,12 +98,13 @@ export default function UserProfileModal({
         if (blockError) throw blockError;
         
         setIsBlocked(true);
-        alert(`${user.username} has been blocked`);
-      } catch (err: any) {
-        setError(err.message || 'Failed to block user');
-      } finally {
-        setBlocking(false);
       }
+      
+      setShowBlockConfirm(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update block status');
+    } finally {
+      setBlocking(false);
     }
   };
 
@@ -238,15 +223,15 @@ export default function UserProfileModal({
             {conversationId && (
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <button
-                  onClick={handleDeleteConversation}
+                  onClick={() => setShowDeleteConfirm(true)}
                   disabled={deleting}
                   className="flex-1 py-2.5 sm:py-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-medium rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base"
                 >
                   <Trash2 className="w-4 h-4" />
-                  {deleting ? 'Deleting...' : 'Delete Chat'}
+                  Delete Chat
                 </button>
                 <button
-                  onClick={handleBlockUser}
+                  onClick={() => setShowBlockConfirm(true)}
                   disabled={blocking || checkingBlock}
                   className={`flex-1 py-2.5 sm:py-3 font-medium rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base ${
                     isBlocked
@@ -255,13 +240,41 @@ export default function UserProfileModal({
                   }`}
                 >
                   <Ban className="w-4 h-4" />
-                  {blocking ? (isBlocked ? 'Unblocking...' : 'Blocking...') : (isBlocked ? 'Unblock User' : 'Block User')}
+                  {isBlocked ? 'Unblock User' : 'Block User'}
                 </button>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteConversation}
+        title="Delete Conversation"
+        message={`Are you sure you want to delete this conversation with ${user.username}? This action cannot be undone.`}
+        confirmText="Delete"
+        confirmColor="red"
+        loading={deleting}
+      />
+
+      {/* Block/Unblock Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showBlockConfirm}
+        onClose={() => setShowBlockConfirm(false)}
+        onConfirm={handleBlockUser}
+        title={isBlocked ? 'Unblock User' : 'Block User'}
+        message={
+          isBlocked
+            ? `Unblock ${user.username}? They will be able to message you again.`
+            : `Block ${user.username}? They won't be able to message you.`
+        }
+        confirmText={isBlocked ? 'Unblock' : 'Block'}
+        confirmColor={isBlocked ? 'green' : 'orange'}
+        loading={blocking}
+      />
 
       {/* Full Size Avatar Modal */}
       {showFullAvatar && user.avatar_url && (
