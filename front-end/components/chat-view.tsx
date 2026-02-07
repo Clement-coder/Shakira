@@ -24,17 +24,21 @@ function MessageStatusIcon({
   const [isRead, setIsRead] = useState(false);
 
   useEffect(() => {
-    // Check if other user has viewed this message
-    const checkReadStatus = () => {
-      const lastReadKey = `last_read_${conversationId}_${otherUserId}`;
-      const otherUserLastRead = localStorage.getItem(lastReadKey);
+    // Check if other user has viewed this message via Supabase
+    const checkReadStatus = async () => {
+      const { data } = await supabase
+        .from('conversation_views')
+        .select('last_viewed_at')
+        .eq('conversation_id', conversationId)
+        .eq('user_id', otherUserId)
+        .single();
       
-      if (otherUserLastRead) {
-        const lastReadTime = new Date(otherUserLastRead).getTime();
+      if (data && data.last_viewed_at) {
+        const lastViewedTime = new Date(data.last_viewed_at).getTime();
         const msgTime = new Date(messageTime).getTime();
         
-        // Message is read if other user opened conversation AFTER this message was sent
-        if (lastReadTime > msgTime) {
+        // Message is read if other user viewed conversation AFTER this message was sent
+        if (lastViewedTime > msgTime) {
           setIsRead(true);
         }
       }
@@ -42,8 +46,8 @@ function MessageStatusIcon({
 
     checkReadStatus();
     
-    // Check every 2 seconds for read status
-    const interval = setInterval(checkReadStatus, 2000);
+    // Check every 3 seconds for read status
+    const interval = setInterval(checkReadStatus, 3000);
     return () => clearInterval(interval);
   }, [conversationId, otherUserId, messageTime]);
 
@@ -83,7 +87,20 @@ export default function ChatView({
     fetchOtherUser();
     fetchMessages();
     
-    // Mark conversation as read - save current timestamp
+    // Mark conversation as viewed in Supabase
+    const markAsViewed = async () => {
+      await supabase
+        .from('conversation_views')
+        .upsert({
+          conversation_id: conversationId,
+          user_id: user!.id,
+          last_viewed_at: new Date().toISOString(),
+        });
+    };
+    
+    markAsViewed();
+    
+    // Mark conversation as read - save current timestamp (localStorage backup)
     const lastReadKey = `last_read_${conversationId}_${user!.id}`;
     localStorage.setItem(lastReadKey, new Date().toISOString());
     
