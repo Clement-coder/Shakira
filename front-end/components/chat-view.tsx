@@ -355,8 +355,8 @@ export default function ChatView({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <form onSubmit={sendMessage} className="p-2 sm:p-3 md:p-4 border-t border-[var(--border)]">
+      {/* Input - Sticky */}
+      <form onSubmit={sendMessage} className="sticky bottom-0 bg-[var(--bg-primary)] p-2 sm:p-3 md:p-4 border-t border-[var(--border)]">
         <div className="flex items-center gap-1.5 sm:gap-2">
           <input
             type="text"
@@ -380,6 +380,7 @@ export default function ChatView({
           user={otherUser}
           onClose={() => setShowUserProfile(false)}
           onMessage={() => setShowUserProfile(false)}
+          conversationId={conversationId}
         />
       )}
     </div>

@@ -274,8 +274,8 @@ export default function ChatList({
           )}
         </div>
 
-        {/* New Chat Button */}
-        <div className="p-3 sm:p-4 border-t border-[var(--border)]">
+        {/* New Chat Button - Sticky */}
+        <div className="sticky bottom-0 bg-[var(--bg-primary)] p-3 sm:p-4 border-t border-[var(--border)]">
           <button
             onClick={() => setShowNewChat(true)}
             className="w-full flex items-center justify-center gap-2 py-2.5 sm:py-3 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors text-sm sm:text-base"
