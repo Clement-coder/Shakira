@@ -120,17 +120,17 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-white">
       <div className="w-full max-w-md animate-scale-in">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-[var(--accent)] rounded-2xl mb-4">
-            <MessageCircle className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-600 rounded-2xl mb-6 shadow-lg">
+            <MessageCircle className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-[var(--text-primary)]">Shakira Messaging</h1>
-          <p className="text-[var(--text-secondary)] mt-2">Connect with anyone, anywhere</p>
+          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-3">Shakira Messaging</h1>
+          <p className="text-gray-600 text-lg">Connect with anyone, anywhere</p>
         </div>
 
-        <div className="bg-[var(--bg-primary)] rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 border border-[var(--border)]">
+        <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-gray-200">
           {mode !== 'verify' && (
             <div className="flex gap-2 mb-6">
               <button
@@ -157,13 +157,13 @@ export default function AuthPage() {
           )}
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm animate-slide-up">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm animate-slide-up">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-green-600 dark:text-green-400 text-sm animate-slide-up">
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-600 text-sm animate-slide-up">
               {success}
             </div>
           )}
@@ -227,7 +227,7 @@ export default function AuthPage() {
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all outline-none"
                       placeholder="johndoe"
                       required
                     />
@@ -243,7 +243,7 @@ export default function AuthPage() {
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all outline-none"
                       placeholder="John Doe"
                     />
                   </div>
@@ -261,7 +261,7 @@ export default function AuthPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all outline-none"
                   placeholder="you@example.com"
                   required
                 />
@@ -279,7 +279,7 @@ export default function AuthPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-12 py-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors"
+                    className="w-full pl-10 pr-12 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all outline-none"
                     placeholder="••••••••"
                     required
                     minLength={6}
