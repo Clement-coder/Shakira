@@ -26,6 +26,12 @@ export default function ChatView({
   useEffect(() => {
     fetchOtherUser();
     fetchMessages();
+    
+    // Load draft from localStorage
+    const savedDraft = localStorage.getItem(`draft_${conversationId}`);
+    if (savedDraft) {
+      setNewMessage(savedDraft);
+    }
 
     const channel = supabase
       .channel(`conversation-${conversationId}`)
@@ -109,7 +115,15 @@ export default function ChatView({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewMessage(e.target.value);
+    const value = e.target.value;
+    setNewMessage(value);
+
+    // Save draft to localStorage
+    if (value.trim()) {
+      localStorage.setItem(`draft_${conversationId}`, value);
+    } else {
+      localStorage.removeItem(`draft_${conversationId}`);
+    }
 
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -129,6 +143,9 @@ export default function ChatView({
     const messageContent = newMessage.trim();
     setNewMessage('');
     updateTypingStatus(false);
+    
+    // Clear draft from localStorage
+    localStorage.removeItem(`draft_${conversationId}`);
 
     await supabase.from('messages').insert({
       conversation_id: conversationId,

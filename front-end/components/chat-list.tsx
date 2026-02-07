@@ -92,12 +92,25 @@ export default function ChatList({
           .limit(1)
           .single();
 
+        // Count unread messages (messages from other user)
+        const { count: unreadCount } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('conversation_id', convId)
+          .neq('sender_id', user.id);
+
+        // Get draft from localStorage
+        const draft = localStorage.getItem(`draft_${convId}`) || null;
+
         let lastMessagePreview = 'No messages yet';
-        if (lastMessage) {
+        if (draft) {
+          lastMessagePreview = `Draft: ${draft.length > 25 ? draft.substring(0, 25) + '...' : draft}`;
+        } else if (lastMessage) {
           const isYou = lastMessage.sender_id === user.id;
           const prefix = isYou ? 'You: ' : '';
           const content = lastMessage.content || '';
-          lastMessagePreview = prefix + (content.length > 30 ? content.substring(0, 30) + '...' : content);
+          const truncated = content.length > 30 ? content.substring(0, 30) + '...' : content;
+          lastMessagePreview = prefix + truncated;
         }
 
         return {
@@ -105,7 +118,8 @@ export default function ChatList({
           otherUser: otherUserProfile!,
           lastMessage: lastMessagePreview,
           lastMessageTime: lastMessage?.created_at || null,
-          unreadCount: 0,
+          unreadCount: unreadCount || 0,
+          draft,
         };
       })
     );
@@ -201,15 +215,22 @@ export default function ChatList({
                     )}
                   </div>
                   <div className="flex-1 text-left overflow-hidden">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-[var(--text-primary)]">{conv.otherUser.username}</p>
-                      {conv.lastMessageTime && (
-                        <span className="text-xs text-[var(--text-secondary)]">
-                          {formatDistanceToNow(new Date(conv.lastMessageTime), { addSuffix: true })}
-                        </span>
-                      )}
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-[var(--text-primary)] truncate">{conv.otherUser.username}</p>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {conv.lastMessageTime && (
+                          <span className="text-xs text-[var(--text-secondary)]">
+                            {formatDistanceToNow(new Date(conv.lastMessageTime), { addSuffix: true })}
+                          </span>
+                        )}
+                        {conv.unreadCount > 0 && (
+                          <span className="bg-[var(--accent)] text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                            {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-[var(--text-secondary)] truncate">
+                    <p className={`text-sm truncate ${conv.draft ? 'text-red-500' : 'text-[var(--text-secondary)]'}`}>
                       {conv.lastMessage}
                     </p>
                   </div>
