@@ -12,11 +12,13 @@ export default function UserProfileModal({
   onClose,
   onMessage,
   conversationId,
+  onDelete,
 }: {
   user: Profile;
   onClose: () => void;
   onMessage: () => void;
   conversationId?: string;
+  onDelete?: () => void;
 }) {
   const { user: currentUser } = useAuth();
   const [deleting, setDeleting] = useState(false);
@@ -64,7 +66,13 @@ export default function UserProfileModal({
       
       setShowDeleteConfirm(false);
       onClose();
-      window.location.reload();
+      
+      // Call onDelete callback if provided, otherwise reload
+      if (onDelete) {
+        onDelete();
+      } else {
+        window.location.reload();
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

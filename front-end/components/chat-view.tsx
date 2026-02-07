@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, Profile, Message } from '@/lib/supabase';
-import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck, ArrowDown } from 'lucide-react';
+import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck, ArrowDown, ArrowUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import UserProfileModal from './user-profile-modal';
 
@@ -81,6 +81,7 @@ export default function ChatView({
   const [refreshing, setRefreshing] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showScrollTopButton, setShowScrollTopButton] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -183,11 +184,17 @@ export default function ChatView({
     if (!messagesContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    const isNearTop = scrollTop < 100;
     setShowScrollButton(!isNearBottom);
+    setShowScrollTopButton(!isNearTop && scrollTop > 200);
   };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const scrollToTop = () => {
+    messagesContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleTypingChange = async (payload: any) => {
@@ -368,6 +375,16 @@ export default function ChatView({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Scroll to Top Button */}
+      {showScrollTopButton && (
+        <button
+          onClick={scrollToTop}
+          className="fixed top-20 right-4 sm:right-6 p-3 bg-[var(--accent)] text-white rounded-full shadow-lg hover:bg-[var(--accent-hover)] transition-all animate-bounce z-10"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
+      )}
+
       {/* Scroll to Bottom Button */}
       {showScrollButton && (
         <button
@@ -404,6 +421,7 @@ export default function ChatView({
           onClose={() => setShowUserProfile(false)}
           onMessage={() => setShowUserProfile(false)}
           conversationId={conversationId}
+          onDelete={onBack}
         />
       )}
     </div>
