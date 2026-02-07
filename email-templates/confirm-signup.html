@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Confirm your email</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #f4f6fb;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: #111827;
+      }
+      .container {
+        max-width: 520px;
+        margin: 0 auto;
+        padding: 40px 20px;
+      }
+      .card {
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 36px 32px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      }
+      .logo {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        margin-bottom: 24px;
+        text-align: center;
+      }
+      h2 {
+        font-size: 20px;
+        margin: 0 0 12px;
+        text-align: center;
+      }
+      p {
+        font-size: 15px;
+        line-height: 1.6;
+        color: #4b5563;
+        margin: 0 0 24px;
+        text-align: center;
+      }
+      .button {
+        display: inline-block;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #ffffff !important;
+        text-decoration: none;
+        padding: 14px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 15px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      .button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+      }
+      .footer {
+        margin-top: 24px;
+        font-size: 13px;
+        color: #9ca3af;
+        text-align: center;
+      }
+      .token {
+        margin-top: 20px;
+        font-size: 12px;
+        color: #9ca3af;
+        word-break: break-all;
+        text-align: center;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="card">
+        <div class="logo">Shakira 💬</div>
+
+        <h2>Confirm your email</h2>
+
+        <p>
+          You're almost in!  
+          Please confirm your email address to start messaging on Shakira.
+        </p>
+
+        <div style="text-align: center;">
+          <a href="{{ .ConfirmationURL }}" class="button">
+            Confirm Email
+          </a>
+        </div>
+
+        <div class="token">
+          If the button doesn't work, use this token:<br />
+          {{ .Token }}
+        </div>
+      </div>
+
+      <div class="footer">
+        If you didn't create a Shakira account, you can safely ignore this email.
+      </div>
+    </div>
+  </body>
+</html>
