@@ -87,7 +87,19 @@ export default function ChatView({
   const [showInputEmojiPicker, setShowInputEmojiPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  // Auto-focus input on mount and when replying
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (replyingTo) {
+      inputRef.current?.focus();
+    }
+  }, [replyingTo]);
 
   useEffect(() => {
     fetchOtherUser();
@@ -296,6 +308,29 @@ export default function ChatView({
     fetchMessages();
   };
 
+  // Link detection and rendering
+  const renderMessageContent = (content: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = content.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:opacity-80 transition-opacity"
+          >
+            {part}
+          </a>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
+
   const removeReaction = async (messageId: string, emoji: string) => {
     await supabase
       .from('message_reactions')
@@ -403,7 +438,7 @@ export default function ChatView({
                       <div className="truncate">{replyToMsg.content}</div>
                     </div>
                   )}
-                  <p className="break-words">{msg.content}</p>
+                  <p className="break-words">{renderMessageContent(msg.content || '')}</p>
                   
                   {/* Reactions */}
                   {msg.reactions && msg.reactions.length > 0 && (
@@ -575,6 +610,7 @@ export default function ChatView({
           )}
           
           <input
+            ref={inputRef}
             type="text"
             value={newMessage}
             onChange={handleInputChange}
