@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, Profile } from '@/lib/supabase';
 import { X, MessageCircle, Calendar, AtSign, Trash2, Ban } from 'lucide-react';
@@ -20,7 +20,28 @@ export default function UserProfileModal({
   const { user: currentUser } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [checkingBlock, setCheckingBlock] = useState(true);
   const [error, setError] = useState('');
+
+  // Check if user is already blocked
+  useEffect(() => {
+    const checkBlockStatus = async () => {
+      if (!currentUser) return;
+      
+      const { data } = await supabase
+        .from('blocked_users')
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .eq('blocked_user_id', user.id)
+        .single();
+      
+      setIsBlocked(!!data);
+      setCheckingBlock(false);
+    };
+    
+    checkBlockStatus();
+  }, [currentUser, user.id]);
 
   const handleDeleteConversation = async () => {
     if (!conversationId || !confirm('Delete this conversation? This cannot be undone.')) return;
@@ -47,28 +68,53 @@ export default function UserProfileModal({
   };
 
   const handleBlockUser = async () => {
-    if (!confirm(`Block ${user.username}? They won't be able to message you.`)) return;
-    
-    setBlocking(true);
-    setError('');
-    
-    try {
-      // Create blocked_users table entry (you'll need to create this table)
-      const { error: blockError } = await supabase
-        .from('blocked_users')
-        .insert({
-          user_id: currentUser!.id,
-          blocked_user_id: user.id,
-        });
+    if (isBlocked) {
+      // Unblock user
+      if (!confirm(`Unblock ${user.username}?`)) return;
       
-      if (blockError) throw blockError;
+      setBlocking(true);
+      setError('');
       
-      alert(`${user.username} has been blocked`);
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to block user');
-    } finally {
-      setBlocking(false);
+      try {
+        const { error: unblockError } = await supabase
+          .from('blocked_users')
+          .delete()
+          .eq('user_id', currentUser!.id)
+          .eq('blocked_user_id', user.id);
+        
+        if (unblockError) throw unblockError;
+        
+        setIsBlocked(false);
+        alert(`${user.username} has been unblocked`);
+      } catch (err: any) {
+        setError(err.message || 'Failed to unblock user');
+      } finally {
+        setBlocking(false);
+      }
+    } else {
+      // Block user
+      if (!confirm(`Block ${user.username}? They won't be able to message you.`)) return;
+      
+      setBlocking(true);
+      setError('');
+      
+      try {
+        const { error: blockError } = await supabase
+          .from('blocked_users')
+          .insert({
+            user_id: currentUser!.id,
+            blocked_user_id: user.id,
+          });
+        
+        if (blockError) throw blockError;
+        
+        setIsBlocked(true);
+        alert(`${user.username} has been blocked`);
+      } catch (err: any) {
+        setError(err.message || 'Failed to block user');
+      } finally {
+        setBlocking(false);
+      }
     }
   };
   return (
@@ -163,11 +209,15 @@ export default function UserProfileModal({
                 </button>
                 <button
                   onClick={handleBlockUser}
-                  disabled={blocking}
-                  className="flex-1 py-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 font-medium rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  disabled={blocking || checkingBlock}
+                  className={`flex-1 py-3 font-medium rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 ${
+                    isBlocked
+                      ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30'
+                      : 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30'
+                  }`}
                 >
                   <Ban className="w-4 h-4" />
-                  {blocking ? 'Blocking...' : 'Block User'}
+                  {blocking ? (isBlocked ? 'Unblocking...' : 'Blocking...') : (isBlocked ? 'Unblock User' : 'Block User')}
                 </button>
               </div>
             )}

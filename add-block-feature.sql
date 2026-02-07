@@ -1,5 +1,7 @@
--- Add blocked users table
-CREATE TABLE IF NOT EXISTS blocked_users (
+-- Add blocked users table (with DROP IF EXISTS)
+DROP TABLE IF EXISTS blocked_users CASCADE;
+
+CREATE TABLE blocked_users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   blocked_user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
