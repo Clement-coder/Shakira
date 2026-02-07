@@ -6,6 +6,7 @@ import { supabase, Profile } from '@/lib/supabase';
 import { Search, Plus, User, Settings, LogOut } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import NewChatModal from './new-chat-modal';
+import LogoutModal from './logout-modal';
 
 type ConversationWithDetails = {
   id: string;
@@ -31,6 +32,8 @@ export default function ChatList({
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewChat, setShowNewChat] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -128,7 +131,7 @@ export default function ChatList({
                 <Settings className="w-5 h-5 text-[var(--text-primary)]" />
               </button>
               <button
-                onClick={signOut}
+                onClick={() => setShowLogoutModal(true)}
                 className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors"
               >
                 <LogOut className="w-5 h-5 text-[var(--text-primary)]" />
@@ -225,6 +228,19 @@ export default function ChatList({
         onSelectConversation(convId);
         fetchConversations();
       }} />}
+
+      {showLogoutModal && (
+        <LogoutModal
+          onConfirm={async () => {
+            setLoggingOut(true);
+            await signOut();
+            setLoggingOut(false);
+            setShowLogoutModal(false);
+          }}
+          onCancel={() => setShowLogoutModal(false)}
+          loading={loggingOut}
+        />
+      )}
     </>
   );
 }

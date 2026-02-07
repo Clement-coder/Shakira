@@ -13,7 +13,9 @@ export default function ChatLayout() {
   return (
     <div className="h-screen flex bg-[var(--bg-primary)]">
       {/* Sidebar */}
-      <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'} w-full md:w-96 flex-col border-r border-[var(--border)]`}>
+      <div className={`${
+        selectedConversation || view !== 'chats' ? 'hidden md:flex' : 'flex'
+      } w-full md:w-96 flex-col border-r border-[var(--border)]`}>
         <ChatList
           onSelectConversation={setSelectedConversation}
           selectedConversation={selectedConversation}
@@ -23,7 +25,9 @@ export default function ChatLayout() {
       </div>
 
       {/* Main Content */}
-      <div className={`${selectedConversation || view !== 'chats' ? 'flex' : 'hidden md:flex'} flex-1 flex-col`}>
+      <div className={`${
+        selectedConversation || view !== 'chats' ? 'flex' : 'hidden md:flex'
+      } flex-1 flex-col`}>
         {view === 'profile' && <ProfileView onBack={() => setView('chats')} />}
         {view === 'settings' && <SettingsView onBack={() => setView('chats')} />}
         {view === 'chats' && selectedConversation && (
