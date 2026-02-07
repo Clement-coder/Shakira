@@ -306,16 +306,29 @@ export default function ChatView({
     
     localStorage.removeItem(`draft_${conversationId}`);
 
-    await supabase.from('messages').insert({
-      conversation_id: conversationId,
-      sender_id: user!.id,
-      content: messageContent,
-      message_type: 'text',
-      reply_to_message_id: replyingTo?.id || null,
-      link_preview: previewData ? JSON.stringify(previewData) : null,
-    });
+    try {
+      const { error } = await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        sender_id: user!.id,
+        content: messageContent,
+        message_type: 'text',
+        reply_to_message_id: replyingTo?.id || null,
+        link_preview: previewData ? JSON.stringify(previewData) : null,
+      });
 
-    setReplyingTo(null);
+      if (error) {
+        console.error('Error sending message:', error);
+        // Restore message on error
+        setNewMessage(messageContent);
+        setLinkPreview(previewData);
+      } else {
+        setReplyingTo(null);
+      }
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      setNewMessage(messageContent);
+      setLinkPreview(previewData);
+    }
   };
 
   const addReaction = async (messageId: string, emoji: string) => {
