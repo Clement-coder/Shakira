@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, Profile } from '@/lib/supabase';
 import { X, Search } from 'lucide-react';
+import UserProfileModal from './user-profile-modal';
 
 export default function NewChatModal({
   onClose,
@@ -16,6 +17,7 @@ export default function NewChatModal({
   const [users, setUsers] = useState<Profile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
 
   useEffect(() => {
     searchUsers();
@@ -39,42 +41,52 @@ export default function NewChatModal({
   };
 
   const createConversation = async (otherUserId: string) => {
-    // Check if conversation already exists
-    const { data: existingParticipants } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', user!.id);
+    try {
+      // Check if conversation already exists
+      const { data: existingParticipants } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .eq('user_id', user!.id);
 
-    if (existingParticipants) {
-      for (const participant of existingParticipants) {
-        const { data: otherParticipant } = await supabase
-          .from('conversation_participants')
-          .select('user_id')
-          .eq('conversation_id', participant.conversation_id)
-          .eq('user_id', otherUserId)
-          .single();
+      if (existingParticipants) {
+        for (const participant of existingParticipants) {
+          const { data: otherParticipant } = await supabase
+            .from('conversation_participants')
+            .select('user_id')
+            .eq('conversation_id', participant.conversation_id)
+            .eq('user_id', otherUserId)
+            .single();
 
-        if (otherParticipant) {
-          onSelectUser(participant.conversation_id);
-          return;
+          if (otherParticipant) {
+            onSelectUser(participant.conversation_id);
+            return;
+          }
         }
       }
-    }
 
-    // Create new conversation
-    const { data: newConversation } = await supabase
-      .from('conversations')
-      .insert({})
-      .select()
-      .single();
+      // Create new conversation
+      const { data: newConversation, error: convError } = await supabase
+        .from('conversations')
+        .insert({})
+        .select()
+        .single();
 
-    if (newConversation) {
-      await supabase.from('conversation_participants').insert([
-        { conversation_id: newConversation.id, user_id: user!.id },
-        { conversation_id: newConversation.id, user_id: otherUserId },
-      ]);
+      if (convError) throw convError;
 
-      onSelectUser(newConversation.id);
+      if (newConversation) {
+        const { error: participantsError } = await supabase
+          .from('conversation_participants')
+          .insert([
+            { conversation_id: newConversation.id, user_id: user!.id },
+            { conversation_id: newConversation.id, user_id: otherUserId },
+          ]);
+
+        if (participantsError) throw participantsError;
+
+        onSelectUser(newConversation.id);
+      }
+    } catch (error) {
+      console.error('Error creating conversation:', error);
     }
   };
 
@@ -120,7 +132,7 @@ export default function NewChatModal({
             users.map((u) => (
               <button
                 key={u.id}
-                onClick={() => createConversation(u.id)}
+                onClick={() => setSelectedUser(u)}
                 className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
               >
                 <div className="relative">
@@ -146,6 +158,18 @@ export default function NewChatModal({
           )}
         </div>
       </div>
+
+      {selectedUser && (
+        <UserProfileModal
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          onMessage={async () => {
+            await createConversation(selectedUser.id);
+            setSelectedUser(null);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }
