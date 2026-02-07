@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, Profile } from '@/lib/supabase';
-import { Search, Plus, User, Settings, LogOut } from 'lucide-react';
+import { Search, Plus, User, Settings, LogOut, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import NewChatModal from './new-chat-modal';
 import LogoutModal from './logout-modal';
@@ -35,6 +35,7 @@ export default function ChatList({
   const [showNewChat, setShowNewChat] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -92,12 +93,32 @@ export default function ChatList({
           .limit(1)
           .single();
 
-        // Count unread messages (messages from other user)
-        const { count: unreadCount } = await supabase
-          .from('messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('conversation_id', convId)
-          .neq('sender_id', user.id);
+        // Count unread messages (messages not read by current user)
+        // Use localStorage to track last read message timestamp
+        const lastReadKey = `last_read_${convId}_${user.id}`;
+        const lastReadTime = localStorage.getItem(lastReadKey);
+
+        let unreadCount = 0;
+        if (lastReadTime) {
+          // Count messages received after last read time
+          const { count } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', convId)
+            .neq('sender_id', user.id)
+            .gt('created_at', lastReadTime);
+          
+          unreadCount = count || 0;
+        } else {
+          // First time opening - count all messages from other user
+          const { data: unreadMessages } = await supabase
+            .from('messages')
+            .select('id')
+            .eq('conversation_id', convId)
+            .neq('sender_id', user.id);
+          
+          unreadCount = unreadMessages?.length || 0;
+        }
 
         // Get draft from localStorage
         const draft = localStorage.getItem(`draft_${convId}`) || null;
@@ -133,6 +154,12 @@ export default function ChatList({
     conv.otherUser.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchConversations();
+    setTimeout(() => setRefreshing(false), 500);
+  };
+
   return (
     <>
       <div className="flex flex-col h-full">
@@ -141,6 +168,13 @@ export default function ChatList({
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)]">Messages</h1>
             <div className="flex gap-1 sm:gap-2">
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-5 h-5 text-[var(--text-primary)] ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
               <button
                 onClick={() => onViewChange('profile')}
                 className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors"

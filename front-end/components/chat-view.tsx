@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import { supabase, Profile, Message } from '@/lib/supabase';
 import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import UserProfileModal from './user-profile-modal';
 
 export default function ChatView({
   conversationId,
@@ -20,12 +21,17 @@ export default function ChatView({
   const [loading, setLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showUserProfile, setShowUserProfile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   useEffect(() => {
     fetchOtherUser();
     fetchMessages();
+    
+    // Mark conversation as read - save current timestamp
+    const lastReadKey = `last_read_${conversationId}_${user!.id}`;
+    localStorage.setItem(lastReadKey, new Date().toISOString());
     
     // Load draft from localStorage
     const savedDraft = localStorage.getItem(`draft_${conversationId}`);
@@ -43,6 +49,9 @@ export default function ChatView({
       }, (payload) => {
         setMessages((prev) => [...prev, payload.new as Message]);
         scrollToBottom();
+        // Update last read timestamp when viewing messages
+        const lastReadKey = `last_read_${conversationId}_${user!.id}`;
+        localStorage.setItem(lastReadKey, new Date().toISOString());
       })
       .on('postgres_changes', {
         event: '*',
@@ -177,22 +186,27 @@ export default function ChatView({
         >
           <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
         </button>
-        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--accent)] flex items-center justify-center text-white font-semibold relative flex-shrink-0">
-          {otherUser.avatar_url ? (
-            <img src={otherUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-          ) : (
-            otherUser.username[0].toUpperCase()
-          )}
-          {otherUser.is_online && (
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full border-2 border-[var(--bg-primary)]" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[var(--text-primary)] text-sm sm:text-base truncate">{otherUser.username}</p>
-          <p className="text-xs text-[var(--text-secondary)] truncate">
-            {otherUser.is_online ? 'Online' : `Last seen ${formatDistanceToNow(new Date(otherUser.last_seen), { addSuffix: true })}`}
-          </p>
-        </div>
+        <button
+          onClick={() => setShowUserProfile(true)}
+          className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 hover:bg-[var(--bg-secondary)] rounded-lg p-2 -m-2 transition-colors"
+        >
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--accent)] flex items-center justify-center text-white font-semibold relative flex-shrink-0">
+            {otherUser.avatar_url ? (
+              <img src={otherUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+            ) : (
+              otherUser.username[0].toUpperCase()
+            )}
+            {otherUser.is_online && (
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full border-2 border-[var(--bg-primary)]" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="font-semibold text-[var(--text-primary)] text-sm sm:text-base truncate">{otherUser.username}</p>
+            <p className="text-xs text-[var(--text-secondary)] truncate">
+              {otherUser.is_online ? 'Online' : `Last seen ${formatDistanceToNow(new Date(otherUser.last_seen), { addSuffix: true })}`}
+            </p>
+          </div>
+        </button>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
@@ -289,6 +303,14 @@ export default function ChatView({
           </button>
         </div>
       </form>
+
+      {showUserProfile && otherUser && (
+        <UserProfileModal
+          user={otherUser}
+          onClose={() => setShowUserProfile(false)}
+          onMessage={() => setShowUserProfile(false)}
+        />
+      )}
     </div>
   );
 }
