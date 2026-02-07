@@ -7,6 +7,60 @@ import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check
 import { formatDistanceToNow } from 'date-fns';
 import UserProfileModal from './user-profile-modal';
 
+// Message Status Icon Component
+function MessageStatusIcon({ 
+  messageId, 
+  conversationId, 
+  otherUserId,
+  messageTime,
+  otherUserOnline
+}: { 
+  messageId: string; 
+  conversationId: string; 
+  otherUserId: string;
+  messageTime: string;
+  otherUserOnline: boolean;
+}) {
+  const [isRead, setIsRead] = useState(false);
+
+  useEffect(() => {
+    // Check if other user has viewed this message
+    const checkReadStatus = () => {
+      const lastReadKey = `last_read_${conversationId}_${otherUserId}`;
+      const otherUserLastRead = localStorage.getItem(lastReadKey);
+      
+      if (otherUserLastRead) {
+        const lastReadTime = new Date(otherUserLastRead).getTime();
+        const msgTime = new Date(messageTime).getTime();
+        
+        // Message is read if other user opened conversation AFTER this message was sent
+        if (lastReadTime > msgTime) {
+          setIsRead(true);
+        }
+      }
+    };
+
+    checkReadStatus();
+    
+    // Check every 2 seconds for read status
+    const interval = setInterval(checkReadStatus, 2000);
+    return () => clearInterval(interval);
+  }, [conversationId, otherUserId, messageTime]);
+
+  // Read (blue double check) - other user opened conversation after message
+  if (isRead) {
+    return <CheckCheck className="w-3 h-3 text-blue-400" />;
+  }
+  
+  // Delivered (gray double check) - user is online
+  if (otherUserOnline) {
+    return <CheckCheck className="w-3 h-3 text-white/70" />;
+  }
+  
+  // Sent (single gray check) - user is offline
+  return <Check className="w-3 h-3 text-white/70" />;
+}
+
 export default function ChatView({
   conversationId,
   onBack,
@@ -250,13 +304,13 @@ export default function ChatView({
                     {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
                   </p>
                   {isSent && (
-                    <div className="flex items-center">
-                      {otherUser.is_online ? (
-                        <CheckCheck className="w-3 h-3 text-blue-400" />
-                      ) : (
-                        <Check className="w-3 h-3 text-white/70" />
-                      )}
-                    </div>
+                    <MessageStatusIcon 
+                      messageId={msg.id}
+                      conversationId={conversationId}
+                      otherUserId={otherUser.id}
+                      messageTime={msg.created_at}
+                      otherUserOnline={otherUser.is_online}
+                    />
                   )}
                 </div>
               </div>
