@@ -378,7 +378,7 @@ export default function ChatList({
                   </div>
                   <div className="flex-1 text-left overflow-hidden">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-[var(--text-primary)] truncate">{conv.is_group ? conv.group_name : conv.otherUser.username}</p>
+                      <p className="font-semibold text-[var(--text-primary)] truncate">{conv.is_group ? conv.group_name : (conv.otherUser ? conv.otherUser.username : 'Unknown User')}</p>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                           onClick={(e) => {
