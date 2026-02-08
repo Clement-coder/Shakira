@@ -11,14 +11,15 @@ import CreateGroupModal from './create-group-modal';
 
 type ConversationWithDetails = {
   id: string;
-  otherUser: Profile;
   lastMessage: string | null;
   lastMessageTime: string | null;
   unreadCount: number;
   draft: string | null;
   isFavourite: boolean;
   is_group: boolean;
-  group_name?: string;
+  group_name: string | null;
+  group_avatar_url: string | null;
+  otherUser?: Profile; // Optional for 1-on-1 chats
 };
 
 export default function ChatList({
@@ -83,20 +84,8 @@ export default function ChatList({
       (convsFromDb || []).map(async (conv) => {
         const convId = conv.id;
 
-        let otherUserProfile: Profile | null = null;
-        if (conv.is_group) {
-          otherUserProfile = {
-            id: conv.id,
-            username: conv.group_name || 'Group Chat',
-            full_name: conv.group_name || 'Group Chat',
-            avatar_url: conv.group_avatar_url || null,
-            is_online: false,
-            last_seen: new Date().toISOString(),
-            bio: '',
-            created_at: conv.created_at,
-            updated_at: conv.updated_at,
-          };
-        } else {
+        let otherUserProfile: Profile | undefined = undefined;
+        if (!conv.is_group) {
           const { data: otherParticipant } = await supabase
             .from('conversation_participants')
             .select('user_id')
@@ -110,11 +99,12 @@ export default function ChatList({
               .select('*')
               .eq('id', otherParticipant.user_id)
               .single();
-            otherUserProfile = profile;
+            otherUserProfile = profile || undefined;
           }
         }
 
-        if (!otherUserProfile) return null;
+        // If it's a 1-on-1 chat and otherUserProfile is null, skip this conversation
+        if (!conv.is_group && !otherUserProfile) return null;
 
         const { data: lastMessage } = await supabase
           .from('messages')
@@ -162,7 +152,7 @@ export default function ChatList({
 
         return {
           id: convId,
-          otherUser: otherUserProfile!,
+          otherUser: otherUserProfile,
           lastMessage: lastMessagePreview,
           lastMessageTime: lastMessage?.created_at || null,
           unreadCount: unreadCount || 0,
@@ -170,9 +160,11 @@ export default function ChatList({
           isFavourite: false,
           is_group: conv.is_group,
           group_name: conv.group_name,
+          group_avatar_url: conv.group_avatar_url,
         };
       })
     );
+    console.log('Fetched conversationsData:', conversationsData);
 
     const validConversations = conversationsData.filter(Boolean) as ConversationWithDetails[];
 
@@ -215,7 +207,7 @@ export default function ChatList({
 
   const filteredConversations = conversations
     .filter((conv) => {
-      const searchName = conv.is_group ? conv.group_name : conv.otherUser.username;
+      const searchName = conv.is_group ? conv.group_name : conv.otherUser?.username;
       const matchesSearch = searchName?.toLowerCase().includes(searchQuery.toLowerCase());
       
       if (!matchesSearch) return false;
@@ -227,6 +219,7 @@ export default function ChatList({
       
       return true;
     });
+    console.log('Filtered conversations:', filteredConversations);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -359,13 +352,21 @@ export default function ChatList({
                 >
                   <div className="relative flex-shrink-0">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[var(--accent)] flex items-center justify-center text-white font-semibold">
-                      {conv.otherUser.avatar_url ? (
-                        <img src={conv.otherUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                      {conv.is_group ? (
+                        conv.group_avatar_url ? (
+                          <img src={conv.group_avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          conv.group_name?.[0].toUpperCase()
+                        )
                       ) : (
-                        conv.otherUser.username[0].toUpperCase()
+                        conv.otherUser?.avatar_url ? (
+                          <img src={conv.otherUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          conv.otherUser?.username[0].toUpperCase()
+                        )
                       )}
                     </div>
-                    {conv.otherUser.is_online && !conv.is_group && (
+                    {conv.otherUser?.is_online && !conv.is_group && (
                       <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[var(--bg-primary)]" />
                     )}
                   </div>

@@ -119,19 +119,14 @@ export default function GroupProfileModal({
   const handleExitGroup = async () => {
     if (!user) return;
 
-    setRemoving(true); // Reusing removing state for loading indicator
-    await supabase
-      .from('conversation_participants')
-      .delete()
-      .eq('conversation_id', conversation.id)
-      .eq('user_id', user.id);
+    setRemoving(true);
+    const { error } = await supabase.rpc('exit_group', { p_user_id: user.id, p_conversation_id: conversation.id });
 
-    await supabase.from('messages').insert({
-      conversation_id: conversation.id,
-      sender_id: user.id,
-      content: `${user.username} has left the group.`,
-      message_type: 'text',
-    });
+    if (error) {
+      console.error('Error exiting group:', error);
+      setRemoving(false);
+      return;
+    }
 
     setRemoving(false);
     setShowExitConfirm(false);

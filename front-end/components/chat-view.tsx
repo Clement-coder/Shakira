@@ -506,10 +506,18 @@ export default function ChatView({
           className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 hover:bg-[var(--bg-secondary)] rounded-lg p-2 -m-2 transition-colors"
         >
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--accent)] flex items-center justify-center text-white font-semibold relative flex-shrink-0">
-            {otherUser?.avatar_url ? (
-              <img src={otherUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+            {conversation?.is_group ? (
+              conversation.group_avatar_url ? (
+                <img src={conversation.group_avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+              ) : (
+                conversation.group_name?.[0].toUpperCase()
+              )
             ) : (
-              headerText?.[0].toUpperCase()
+              otherUser?.avatar_url ? (
+                <img src={otherUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+              ) : (
+                headerText?.[0].toUpperCase()
+              )
             )}
             {otherUser?.is_online && !conversation?.is_group && (
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full border-2 border-[var(--bg-primary)]" />
@@ -517,9 +525,16 @@ export default function ChatView({
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p className="font-semibold text-[var(--text-primary)] text-sm sm:text-base truncate">{headerText}</p>
-            <p className="text-xs text-[var(--text-secondary)] truncate">
-              {subHeaderText}
-            </p>
+            {conversation?.is_group && participants.length > 0 ? (
+              <p className="text-xs text-[var(--text-secondary)] truncate">
+                {participants.slice(0, 2).map(p => p.username).join(', ')}
+                {participants.length > 2 && ` and ${participants.length - 2} others`}
+              </p>
+            ) : (
+              <p className="text-xs text-[var(--text-secondary)] truncate">
+                {subHeaderText}
+              </p>
+            )}
           </div>
         </button>
         <button
