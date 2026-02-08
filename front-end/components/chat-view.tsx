@@ -778,7 +778,7 @@ export default function ChatView({
       {showScrollTopButton && (
         <button
           onClick={scrollToTop}
-          className="fixed top-20 right-4 sm:right-6 p-3 bg-[var(--accent)] text-white rounded-full shadow-lg hover:bg-[var(--accent-hover)] transition-all animate-bounce z-10"
+          className="fixed top-20 left-1/2 -translate-x-1/2 p-3 bg-[var(--accent)] text-white rounded-full shadow-lg hover:bg-[var(--accent-hover)] transition-all animate-bounce z-10 backdrop-blur-md bg-opacity-50"
         >
           <ArrowUp className="w-5 h-5" />
         </button>
@@ -788,7 +788,7 @@ export default function ChatView({
       {showScrollButton && (
         <button
           onClick={scrollToBottom}
-          className="fixed bottom-20 right-4 sm:right-6 p-3 bg-[var(--accent)] text-white rounded-full shadow-lg hover:bg-[var(--accent-hover)] transition-all animate-bounce z-10"
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 p-3 bg-[var(--accent)] text-white rounded-full shadow-lg hover:bg-[var(--accent-hover)] transition-all animate-bounce z-10 backdrop-blur-md bg-opacity-50"
         >
           <ArrowDown className="w-5 h-5" />
         </button>
