@@ -533,6 +533,9 @@ export default function ChatView({
   const headerText = conversation?.is_group ? conversation.group_name : otherUser?.username;
   const subHeaderText = conversation?.is_group ? 'Group chat' : (otherUser?.is_online ? 'Online' : `Last seen ${formatDistanceToNow(new Date(otherUser?.last_seen || 0), { addSuffix: true })}`);
 
+  console.log('headerText:', headerText);
+  console.log('subHeaderText:', subHeaderText);
+
   return (
     <div className="flex flex-col h-full">
       {notifications.map(notification => (
@@ -599,7 +602,7 @@ export default function ChatView({
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 scrollbar-hide relative"
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 scrollbar-hide relative min-h-0"
       >
         {messages.map((msg, idx) => {
           const isSent = msg.sender_id === user!.id;
