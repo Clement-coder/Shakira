@@ -74,3 +74,10 @@ export type UserSettings = {
   created_at: string;
   updated_at: string;
 };
+
+export async function deleteGroup(groupId: string) {
+  const { error } = await supabase.rpc('delete_group_by_admin', { group_id: groupId });
+  if (error) {
+    throw error;
+  }
+}

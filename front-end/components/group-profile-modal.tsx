@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { supabase, Profile, Conversation } from '@/lib/supabase';
+import { supabase, Profile, Conversation, deleteGroup } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { X, Users, ShieldCheck, Camera, Trash2, UserPlus, LogOut } from 'lucide-react';
+import { X, Users, ShieldCheck, Camera, Trash2, UserPlus, LogOut, AlertTriangle } from 'lucide-react';
 import UserProfileModal from './user-profile-modal';
 import ConfirmModal from './confirm-modal';
 import AddMemberModal from './add-member-modal';
@@ -30,6 +30,7 @@ export default function GroupProfileModal({
   const [removing, setRemoving] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const currentUserIsAdmin = participants.find(p => p.profile.id === user?.id)?.is_admin || false;
 
@@ -131,6 +132,20 @@ export default function GroupProfileModal({
     setRemoving(false);
     setShowExitConfirm(false);
     onClose(); // Redirects back to chat list
+  };
+
+  const handleDeleteGroup = async () => {
+    setRemoving(true);
+    try {
+      await deleteGroup(conversation.id);
+      setRemoving(false);
+      setShowDeleteConfirm(false);
+      onClose(); // Redirects back to chat list
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      setRemoving(false);
+      // Optionally show an error message to the user
+    }
   };
 
   if (selectedUser) {
@@ -262,6 +277,15 @@ export default function GroupProfileModal({
           </div>
           
           <div className="p-4 border-t border-[var(--border)]">
+            {currentUserIsAdmin && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full py-2.5 sm:py-3 bg-red-700 text-white font-medium rounded-lg hover:bg-red-800 transition-colors text-sm sm:text-base flex items-center justify-center gap-2 mb-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Group
+              </button>
+            )}
             <button
               onClick={() => setShowExitConfirm(true)}
               className="w-full py-2.5 sm:py-3 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-colors text-sm sm:text-base flex items-center justify-center gap-2"
@@ -304,6 +328,18 @@ export default function GroupProfileModal({
           title="Exit Group"
           message={`Are you sure you want to exit "${conversation.group_name}"? You will be removed from this group.`}
           confirmText="Exit"
+          confirmColor="red"
+          loading={removing}
+        />
+      )}
+      {showDeleteConfirm && (
+        <ConfirmModal
+          isOpen={showDeleteConfirm}
+          onClose={() => setShowDeleteConfirm(false)}
+          onConfirm={handleDeleteGroup}
+          title="Delete Group"
+          message={`Are you sure you want to permanently delete "${conversation.group_name}"? This action cannot be undone.`}
+          confirmText="Delete"
           confirmColor="red"
           loading={removing}
         />
