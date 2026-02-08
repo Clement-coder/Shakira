@@ -28,3 +28,15 @@ CREATE POLICY "Users can remove their own favourites"
 
 -- Add index
 CREATE INDEX IF NOT EXISTS idx_favourite_conversations_user ON favourite_conversations(user_id);
+
+-- Add group chat support
+ALTER TABLE conversations 
+ADD COLUMN IF NOT EXISTS is_group BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS group_name TEXT,
+ADD COLUMN IF NOT EXISTS group_avatar_url TEXT,
+ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES profiles(id);
+
+-- Add admin role to conversation_participants
+ALTER TABLE conversation_participants
+ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
+

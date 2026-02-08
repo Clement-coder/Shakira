@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, Profile } from '@/lib/supabase';
-import { Search, Plus, User, Settings, LogOut, RefreshCw } from 'lucide-react';
+import { Search, Plus, User, Settings, LogOut, RefreshCw, Star } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import NewChatModal from './new-chat-modal';
 import LogoutModal from './logout-modal';
+import CreateGroupModal from './create-group-modal';
 
 type ConversationWithDetails = {
   id: string;
@@ -38,6 +39,7 @@ export default function ChatList({
   const [loggingOut, setLoggingOut] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'groups' | 'favourites'>('all');
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -143,12 +145,50 @@ export default function ChatList({
           lastMessageTime: lastMessage?.created_at || null,
           unreadCount: unreadCount || 0,
           draft,
+          isFavourite: false, // Will be updated below
         };
       })
     );
 
-    setConversations(conversationsData.filter(Boolean) as ConversationWithDetails[]);
+    const validConversations = conversationsData.filter(Boolean) as ConversationWithDetails[];
+
+    // Fetch favourites
+    const { data: favourites } = await supabase
+      .from('favourite_conversations')
+      .select('conversation_id')
+      .eq('user_id', user.id);
+
+    const favouriteIds = new Set(favourites?.map(f => f.conversation_id) || []);
+
+    // Mark favourites
+    validConversations.forEach(conv => {
+      conv.isFavourite = favouriteIds.has(conv.id);
+    });
+
+    setConversations(validConversations);
     setLoading(false);
+  };
+
+  const toggleFavourite = async (conversationId: string) => {
+    const conv = conversations.find(c => c.id === conversationId);
+    if (!conv) return;
+
+    if (conv.isFavourite) {
+      await supabase
+        .from('favourite_conversations')
+        .delete()
+        .eq('user_id', user!.id)
+        .eq('conversation_id', conversationId);
+    } else {
+      await supabase
+        .from('favourite_conversations')
+        .insert({
+          user_id: user!.id,
+          conversation_id: conversationId,
+        });
+    }
+
+    fetchConversations();
   };
 
   const filteredConversations = conversations
@@ -163,7 +203,7 @@ export default function ChatList({
       if (filter === 'unread') return conv.unreadCount > 0;
       if (filter === 'read') return conv.unreadCount === 0;
       if (filter === 'groups') return false; // Groups not implemented yet
-      if (filter === 'favourites') return false; // Favourites not implemented yet
+      if (filter === 'favourites') return conv.isFavourite;
       
       return true; // 'all'
     });
@@ -255,13 +295,37 @@ export default function ChatList({
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-[var(--text-secondary)] p-8">
-              <p className="text-center mb-4">No conversations yet</p>
-              <button
-                onClick={() => setShowNewChat(true)}
-                className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors"
-              >
-                Start a conversation
-              </button>
+              {filter === 'favourites' ? (
+                <>
+                  <Star className="w-16 h-16 mb-4 text-[var(--text-secondary)]" />
+                  <p className="text-center text-lg font-semibold mb-2">No Favourites Yet</p>
+                  <p className="text-center text-sm mb-4">Star conversations to add them to favourites</p>
+                </>
+              ) : filter === 'groups' ? (
+                <>
+                  <svg className="w-16 h-16 mb-4 text-[var(--text-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <p className="text-center text-lg font-semibold mb-2">No Groups Yet</p>
+                  <p className="text-center text-sm mb-4">Create a group to chat with multiple people</p>
+                  <button
+                    onClick={() => setShowCreateGroup(true)}
+                    className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors"
+                  >
+                    Create Group
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-center mb-4">No conversations yet</p>
+                  <button
+                    onClick={() => setShowNewChat(true)}
+                    className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors"
+                  >
+                    Start a conversation
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <div className="p-2 sm:p-2">
@@ -289,6 +353,17 @@ export default function ChatList({
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold text-[var(--text-primary)] truncate">{conv.otherUser.username}</p>
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavourite(conv.id);
+                          }}
+                          className="p-1 hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+                        >
+                          <Star 
+                            className={`w-4 h-4 ${conv.isFavourite ? 'fill-yellow-400 text-yellow-400' : 'text-[var(--text-secondary)]'}`}
+                          />
+                        </button>
                         {conv.lastMessageTime && (
                           <span className="text-xs text-[var(--text-secondary)]">
                             {formatDistanceToNow(new Date(conv.lastMessageTime), { addSuffix: true })}
@@ -340,6 +415,19 @@ export default function ChatList({
           }}
           onCancel={() => setShowLogoutModal(false)}
           loading={loggingOut}
+        />
+      )}
+
+      {showCreateGroup && (
+        <CreateGroupModal
+          isOpen={showCreateGroup}
+          onClose={() => setShowCreateGroup(false)}
+          currentUserId={user!.id}
+          onGroupCreated={(convId) => {
+            setShowCreateGroup(false);
+            fetchConversations();
+            onSelectConversation(convId);
+          }}
         />
       )}
     </>
