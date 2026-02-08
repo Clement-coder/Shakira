@@ -865,6 +865,7 @@ export default function ChatView({
             type="text"
             value={newMessage}
             onChange={handleInputChange}
+            onFocus={() => inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
             placeholder="Type a message..."
             className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-full text-[var(--text-primary)] text-sm sm:text-base focus:border-[var(--accent)] transition-colors"
           />
