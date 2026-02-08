@@ -539,9 +539,8 @@ export default function ChatView({
             )}
           </div>
           <div className="flex-1 min-w-0 text-left">
-            <p className="font-semibold text-[var(--text-primary)] text-sm sm:text-base truncate">{headerText}</p>
-            {conversation?.is_group && participants.length > 0 ? (
-              <p className="text-xs text-[var(--text-secondary)] truncate">
+            <p className="font-semibold text-[var(--text-primary)] text-sm sm:text-base truncate max-w-full">{headerText}</p>
+              <p className="text-xs text-[var(--text-secondary)] truncate max-w-full">
                 {participants.slice(0, 2).map(p => p.username).join(', ')}
                 {participants.length > 2 && ` and ${participants.length - 2} others`}
               </p>
@@ -549,7 +548,7 @@ export default function ChatView({
               <p className="text-xs text-[var(--text-secondary)] truncate">
                 {subHeaderText}
               </p>
-            )}
+            
           </div>
         </button>
         <button
@@ -681,7 +680,7 @@ export default function ChatView({
 
               {/* Message Actions */}
               {/* Visible on small screens */}
-              <div className={`absolute top-0 ${isSent ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} sm:hidden opacity-0 group-hover:opacity-100 transition-opacity gap-1 px-2`}>
+              <div className={`absolute top-0 ${isSent ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} sm:hidden transition-opacity gap-1 px-2`}>
                 <MessageActionsDropdown
                   messageId={msg.id}
                   onReply={() => setReplyingTo(msg)}

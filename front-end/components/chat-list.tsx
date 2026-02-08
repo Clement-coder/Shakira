@@ -426,6 +426,17 @@ export default function ChatList({
         </div>
       </div>
 
+      {/* Floating Create Group Button */}
+      {filter === 'groups' && (
+        <button
+          onClick={() => setShowCreateGroup(true)}
+          className="fixed bottom-20 right-4 sm:right-6 p-3 bg-[var(--accent)] text-white rounded-full shadow-lg hover:bg-[var(--accent-hover)] transition-colors z-20"
+          title="Create New Group"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      )}
+
       {showNewChat && <NewChatModal onClose={() => setShowNewChat(false)} onSelectUser={(convId) => {
         setShowNewChat(false);
         onSelectConversation(convId);

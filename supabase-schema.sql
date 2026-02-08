@@ -20,6 +20,10 @@ CREATE TABLE profiles (
 -- Conversations table
 CREATE TABLE conversations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  group_name TEXT,
+  group_avatar_url TEXT,
+  is_group BOOLEAN DEFAULT FALSE,
+  created_by UUID REFERENCES profiles(id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
