@@ -683,6 +683,7 @@ export default function ChatView({
               {/* Visible on small screens */}
               <div className={`absolute top-0 ${isSent ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} sm:hidden opacity-0 group-hover:opacity-100 transition-opacity gap-1 px-2`}>
                 <MessageActionsDropdown
+                  messageId={msg.id}
                   onReply={() => setReplyingTo(msg)}
                   onCopy={() => copyMessage(msg.content || '', msg.id)}
                   onForward={() => forwardMessage(msg)}
