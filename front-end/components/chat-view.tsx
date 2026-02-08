@@ -500,7 +500,7 @@ export default function ChatView({
   const subHeaderText = conversation?.is_group ? 'Group chat' : (otherUser?.is_online ? 'Online' : `Last seen ${formatDistanceToNow(new Date(otherUser?.last_seen || 0), { addSuffix: true })}`);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-screen">
       {notifications.map(notification => (
         <div key={notification.id} className="bg-blue-500 text-white text-sm text-center p-2 relative">
           {notification.message}
@@ -794,7 +794,7 @@ export default function ChatView({
       )}
 
       {/* Input - Sticky */}
-      <form onSubmit={sendMessage} className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border)] message-input-form">
+      <form onSubmit={sendMessage} className="bg-[var(--bg-primary)] border-t border-[var(--border)] message-input-form flex-shrink-0">
         {linkPreview && (
           <div className="px-4 py-2 bg-[var(--bg-secondary)] flex items-center gap-3">
             {linkPreview.image && (
