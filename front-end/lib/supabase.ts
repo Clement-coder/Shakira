@@ -31,6 +31,10 @@ export type Conversation = {
   id: string;
   created_at: string;
   updated_at: string;
+  is_group: boolean;
+  group_name: string | null;
+  group_avatar_url: string | null;
+  created_by: string | null;
 };
 
 export type Message = {

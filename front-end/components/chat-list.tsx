@@ -17,6 +17,8 @@ type ConversationWithDetails = {
   unreadCount: number;
   draft: string | null;
   isFavourite: boolean;
+  is_group: boolean;
+  group_name?: string;
 };
 
 export default function ChatList({
@@ -72,22 +74,47 @@ export default function ChatList({
 
     const conversationIds = participants.map((p) => p.conversation_id);
 
+    const { data: convsFromDb } = await supabase
+      .from('conversations')
+      .select('*')
+      .in('id', conversationIds);
+
     const conversationsData = await Promise.all(
-      conversationIds.map(async (convId) => {
-        const { data: otherParticipant } = await supabase
-          .from('conversation_participants')
-          .select('user_id')
-          .eq('conversation_id', convId)
-          .neq('user_id', user.id)
-          .single();
+      (convsFromDb || []).map(async (conv) => {
+        const convId = conv.id;
 
-        if (!otherParticipant) return null;
+        let otherUserProfile: Profile | null = null;
+        if (conv.is_group) {
+          otherUserProfile = {
+            id: conv.id,
+            username: conv.group_name || 'Group Chat',
+            full_name: conv.group_name || 'Group Chat',
+            avatar_url: conv.group_avatar_url || null,
+            is_online: false,
+            last_seen: new Date().toISOString(),
+            bio: '',
+            created_at: conv.created_at,
+            updated_at: conv.updated_at,
+          };
+        } else {
+          const { data: otherParticipant } = await supabase
+            .from('conversation_participants')
+            .select('user_id')
+            .eq('conversation_id', convId)
+            .neq('user_id', user.id)
+            .single();
 
-        const { data: otherUserProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', otherParticipant.user_id)
-          .single();
+          if (otherParticipant) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', otherParticipant.user_id)
+              .single();
+            otherUserProfile = profile;
+          }
+        }
+
+        if (!otherUserProfile) return null;
 
         const { data: lastMessage } = await supabase
           .from('messages')
@@ -97,14 +124,11 @@ export default function ChatList({
           .limit(1)
           .single();
 
-        // Count unread messages (messages not read by current user)
-        // Use localStorage to track last read message timestamp
         const lastReadKey = `last_read_${convId}_${user.id}`;
         const lastReadTime = localStorage.getItem(lastReadKey);
 
         let unreadCount = 0;
         if (lastReadTime) {
-          // Count messages received after last read time
           const { count } = await supabase
             .from('messages')
             .select('*', { count: 'exact', head: true })
@@ -114,7 +138,6 @@ export default function ChatList({
           
           unreadCount = count || 0;
         } else {
-          // First time opening - count all messages from other user
           const { data: unreadMessages } = await supabase
             .from('messages')
             .select('id')
@@ -124,7 +147,6 @@ export default function ChatList({
           unreadCount = unreadMessages?.length || 0;
         }
 
-        // Get draft from localStorage
         const draft = localStorage.getItem(`draft_${convId}`) || null;
 
         let lastMessagePreview = 'No messages yet';
@@ -145,14 +167,15 @@ export default function ChatList({
           lastMessageTime: lastMessage?.created_at || null,
           unreadCount: unreadCount || 0,
           draft,
-          isFavourite: false, // Will be updated below
+          isFavourite: false,
+          is_group: conv.is_group,
+          group_name: conv.group_name,
         };
       })
     );
 
     const validConversations = conversationsData.filter(Boolean) as ConversationWithDetails[];
 
-    // Fetch favourites
     const { data: favourites } = await supabase
       .from('favourite_conversations')
       .select('conversation_id')
@@ -160,7 +183,6 @@ export default function ChatList({
 
     const favouriteIds = new Set(favourites?.map(f => f.conversation_id) || []);
 
-    // Mark favourites
     validConversations.forEach(conv => {
       conv.isFavourite = favouriteIds.has(conv.id);
     });
@@ -193,19 +215,17 @@ export default function ChatList({
 
   const filteredConversations = conversations
     .filter((conv) => {
-      // Search filter
-      const matchesSearch = conv.otherUser.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        conv.otherUser.full_name?.toLowerCase().includes(searchQuery.toLowerCase());
+      const searchName = conv.is_group ? conv.group_name : conv.otherUser.username;
+      const matchesSearch = searchName?.toLowerCase().includes(searchQuery.toLowerCase());
       
       if (!matchesSearch) return false;
 
-      // Category filter
       if (filter === 'unread') return conv.unreadCount > 0;
       if (filter === 'read') return conv.unreadCount === 0;
-      if (filter === 'groups') return false; // Groups not implemented yet
+      if (filter === 'groups') return conv.is_group;
       if (filter === 'favourites') return conv.isFavourite;
       
-      return true; // 'all'
+      return true;
     });
 
   const handleRefresh = async () => {

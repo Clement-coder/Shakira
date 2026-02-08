@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { supabase, Profile, Message } from '@/lib/supabase';
+import { supabase, Profile, Message, Conversation } from '@/lib/supabase';
 import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck, ArrowDown, ArrowUp } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import UserProfileModal from './user-profile-modal';
 import ForwardModal from './forward-modal';
+import GroupProfileModal from './group-profile-modal';
 
 // Message Status Icon Component
 function MessageStatusIcon({ 
@@ -76,11 +77,13 @@ export default function ChatView({
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [otherUser, setOtherUser] = useState<Profile | null>(null);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
+  const [showGroupProfile, setShowGroupProfile] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showScrollTopButton, setShowScrollTopButton] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -108,7 +111,7 @@ export default function ChatView({
   }, [replyingTo]);
 
   useEffect(() => {
-    fetchOtherUser();
+    fetchConversation();
     fetchMessages();
     
     // Mark conversation as viewed in Supabase
@@ -170,6 +173,21 @@ export default function ChatView({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const fetchConversation = async () => {
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('id', conversationId)
+      .single();
+
+    if (conv) {
+      setConversation(conv);
+      if (!conv.is_group) {
+        fetchOtherUser();
+      }
+    }
+  };
 
   const fetchOtherUser = async () => {
     const { data: participant } = await supabase
@@ -414,13 +432,24 @@ export default function ChatView({
     }
   };
 
-  if (loading || !otherUser) {
+  const handleHeaderClick = () => {
+    if (conversation?.is_group) {
+      setShowGroupProfile(true);
+    } else {
+      setShowUserProfile(true);
+    }
+  };
+
+  if (loading || (!otherUser && !conversation?.is_group)) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
+
+  const headerText = conversation?.is_group ? conversation.group_name : otherUser?.username;
+  const subHeaderText = conversation?.is_group ? 'Group chat' : (otherUser?.is_online ? 'Online' : `Last seen ${formatDistanceToNow(new Date(otherUser?.last_seen || 0), { addSuffix: true })}`);
 
   return (
     <div className="flex flex-col h-full">
@@ -433,23 +462,23 @@ export default function ChatView({
           <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
         </button>
         <button
-          onClick={() => setShowUserProfile(true)}
+          onClick={handleHeaderClick}
           className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 hover:bg-[var(--bg-secondary)] rounded-lg p-2 -m-2 transition-colors"
         >
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--accent)] flex items-center justify-center text-white font-semibold relative flex-shrink-0">
-            {otherUser.avatar_url ? (
+            {otherUser?.avatar_url ? (
               <img src={otherUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
             ) : (
-              otherUser.username[0].toUpperCase()
+              headerText?.[0].toUpperCase()
             )}
-            {otherUser.is_online && (
+            {otherUser?.is_online && !conversation?.is_group && (
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full border-2 border-[var(--bg-primary)]" />
             )}
           </div>
           <div className="flex-1 min-w-0 text-left">
-            <p className="font-semibold text-[var(--text-primary)] text-sm sm:text-base truncate">{otherUser.username}</p>
+            <p className="font-semibold text-[var(--text-primary)] text-sm sm:text-base truncate">{headerText}</p>
             <p className="text-xs text-[var(--text-secondary)] truncate">
-              {otherUser.is_online ? 'Online' : `Last seen ${formatDistanceToNow(new Date(otherUser.last_seen), { addSuffix: true })}`}
+              {subHeaderText}
             </p>
           </div>
         </button>
@@ -480,10 +509,10 @@ export default function ChatView({
             >
               {!isSent && showAvatar && (
                 <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                  {otherUser.avatar_url ? (
+                  {otherUser?.avatar_url ? (
                     <img src={otherUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
                   ) : (
-                    otherUser.username[0].toUpperCase()
+                    otherUser?.username[0].toUpperCase()
                   )}
                 </div>
               )}
@@ -562,7 +591,7 @@ export default function ChatView({
                     <p className={`text-xs ${isSent ? 'text-white/70' : 'text-[var(--text-secondary)]'}`}>
                       {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
                     </p>
-                    {isSent && (
+                    {isSent && !conversation?.is_group && otherUser && (
                       <MessageStatusIcon 
                         messageId={msg.id}
                         conversationId={conversationId}
@@ -639,10 +668,10 @@ export default function ChatView({
         {isTyping && (
           <div className="flex gap-2 items-center animate-fade-in">
             <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center text-white text-sm font-semibold">
-              {otherUser.avatar_url ? (
+              {otherUser?.avatar_url ? (
                 <img src={otherUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
               ) : (
-                otherUser.username[0].toUpperCase()
+                otherUser?.username[0].toUpperCase()
               )}
             </div>
             <div className="bg-[var(--message-received)] px-4 py-2 rounded-2xl rounded-bl-sm">
@@ -769,6 +798,13 @@ export default function ChatView({
           onMessage={() => setShowUserProfile(false)}
           conversationId={conversationId}
           onDelete={onBack}
+        />
+      )}
+
+      {showGroupProfile && conversation && (
+        <GroupProfileModal
+          conversation={conversation}
+          onClose={() => setShowGroupProfile(false)}
         />
       )}
 
