@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, Profile, Message, Conversation } from '@/lib/supabase';
-import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck, ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck, ArrowDown, ArrowUp, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import UserProfileModal from './user-profile-modal';
 import ForwardModal from './forward-modal';
