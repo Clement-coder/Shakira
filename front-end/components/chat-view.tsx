@@ -530,11 +530,8 @@ export default function ChatView({
     );
   }
 
-  const headerText = conversation?.is_group ? conversation.group_name : otherUser?.username;
+  const headerText = conversation?.is_group ? (conversation.group_name ?? '') : (otherUser?.username ?? '');
   const subHeaderText = conversation?.is_group ? 'Group chat' : (otherUser?.is_online ? 'Online' : `Last seen ${formatDistanceToNow(new Date(otherUser?.last_seen || 0), { addSuffix: true })}`);
-
-  console.log('headerText:', headerText);
-  console.log('subHeaderText:', subHeaderText);
 
   return (
     <div className="flex flex-col h-full">
