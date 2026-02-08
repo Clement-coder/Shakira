@@ -350,10 +350,10 @@ export default function ChatList({
           ) : (
             <div className="p-2 sm:p-2">
               {filteredConversations.map((conv) => (
-                <button
+                <div
                   key={conv.id}
                   onClick={() => onSelectConversation(conv.id)}
-                  className={`w-full flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg hover:bg-[var(--bg-secondary)] transition-all animate-slide-in ${
+                  className={`w-full flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg hover:bg-[var(--bg-secondary)] transition-all animate-slide-in cursor-pointer ${
                     selectedConversation === conv.id ? 'bg-[var(--bg-secondary)]' : ''
                   }`}
                 >
@@ -365,13 +365,13 @@ export default function ChatList({
                         conv.otherUser.username[0].toUpperCase()
                       )}
                     </div>
-                    {conv.otherUser.is_online && (
+                    {conv.otherUser.is_online && !conv.is_group && (
                       <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[var(--bg-primary)]" />
                     )}
                   </div>
                   <div className="flex-1 text-left overflow-hidden">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-[var(--text-primary)] truncate">{conv.otherUser.username}</p>
+                      <p className="font-semibold text-[var(--text-primary)] truncate">{conv.is_group ? conv.group_name : conv.otherUser.username}</p>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button
                           onClick={(e) => {
@@ -400,7 +400,7 @@ export default function ChatList({
                       {conv.lastMessage}
                     </p>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}

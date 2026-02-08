@@ -71,8 +71,15 @@ export default function AddMemberModal({ isOpen, onClose, conversationId, onMemb
         .eq('id', user!.id)
         .single();
 
+      // Create notifications for new members
+      const notifications = Array.from(selectedUsers).map(userId => ({
+        user_id: userId,
+        conversation_id: conversationId,
+        message: `You were added by ${adderProfile?.username || 'Someone'}`,
+      }));
+      await supabase.from('group_notifications').insert(notifications);
+
       for (const userId of selectedUsers) {
-        localStorage.setItem(`newly-added-to-group-${conversationId}`, adderProfile?.username || 'Someone');
         const { data: newMemberProfile } = await supabase
           .from('profiles')
           .select('username')

@@ -27,4 +27,3 @@ CREATE POLICY "Anyone can add participants" ON conversation_participants
 
 CREATE POLICY "Users can delete participants" ON conversation_participants
   FOR DELETE USING (user_id = auth.uid());
-

@@ -125,3 +125,7 @@ button:active {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+.message-input-form {
+  padding-bottom: env(safe-area-inset-bottom);
+}

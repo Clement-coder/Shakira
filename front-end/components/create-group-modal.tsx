@@ -85,10 +85,13 @@ const { data: creatorProfile } = await supabase
         .eq('id', currentUserId)
         .single();
 
-      // Set localStorage notification for new members
-      for (const userId of selectedUsers) {
-        localStorage.setItem(`newly-added-to-group-${newConv.id}`, creatorProfile?.username || 'Someone');
-      }
+      // Create notifications for new members
+      const notifications = Array.from(selectedUsers).map(userId => ({
+        user_id: userId,
+        conversation_id: newConv.id,
+        message: `You were added by ${creatorProfile?.username || 'Someone'}`,
+      }));
+      await supabase.from('group_notifications').insert(notifications);
 
       // Send system message
       await supabase.from('messages').insert({

@@ -98,6 +98,7 @@ export default function ChatView({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   // Auto-focus input on mount and when replying
   useEffect(() => {
@@ -110,9 +111,23 @@ export default function ChatView({
     }
   }, [replyingTo]);
 
+  const fetchNotifications = async () => {
+    const { data } = await supabase
+      .from('group_notifications')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', user!.id)
+      .eq('is_read', false);
+    
+    if (data) {
+      setNotifications(data);
+    }
+  };
+
   useEffect(() => {
     fetchConversation();
     fetchMessages();
+    fetchNotifications();
     
     // Mark conversation as viewed in Supabase
     const markAsViewed = async () => {
@@ -163,6 +178,14 @@ export default function ChatView({
         table: 'typing_indicators',
         filter: `conversation_id=eq.${conversationId}`,
       }, handleTypingChange)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'group_notifications',
+        filter: `conversation_id=eq.${conversationId}`,
+      }, () => {
+        fetchNotifications();
+      })
       .subscribe();
 
     return () => {
@@ -440,6 +463,15 @@ export default function ChatView({
     }
   };
 
+  const dismissNotification = async (notificationId: string) => {
+    await supabase
+      .from('group_notifications')
+      .update({ is_read: true })
+      .eq('id', notificationId);
+    
+    setNotifications(notifications.filter(n => n.id !== notificationId));
+  };
+
   if (loading || (!otherUser && !conversation?.is_group)) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -453,6 +485,14 @@ export default function ChatView({
 
   return (
     <div className="flex flex-col h-full">
+      {notifications.map(notification => (
+        <div key={notification.id} className="bg-blue-500 text-white text-sm text-center p-2 relative">
+          {notification.message}
+          <button onClick={() => dismissNotification(notification.id)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      ))}
       {/* Header - Sticky */}
       <div className="sticky top-0 z-10 bg-[var(--bg-primary)] p-3 sm:p-4 border-b border-[var(--border)] flex items-center gap-2 sm:gap-3">
         <button
@@ -543,10 +583,10 @@ export default function ChatView({
                           href={preview.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block mt-2 border border-white/20 rounded-lg overflow-hidden hover:border-white/40 transition-colors"
+                          className="block mt-2 border border-white/20 rounded-lg overflow-hidden hover:border-white/40 transition-colors max-w-[200px]"
                         >
                           {preview.image && (
-                            <img src={preview.image} alt="" className="w-full h-32 object-cover" />
+                            <img src={preview.image} alt="" className="w-full h-20 object-cover" />
                           )}
                           <div className="p-2 bg-black/10">
                             <div className="font-semibold text-sm truncate">{preview.title}</div>
@@ -707,7 +747,7 @@ export default function ChatView({
       )}
 
       {/* Input - Sticky */}
-      <form onSubmit={sendMessage} className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border)]">
+      <form onSubmit={sendMessage} className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border)] message-input-form">
         {linkPreview && (
           <div className="px-4 py-2 bg-[var(--bg-secondary)] flex items-center gap-3">
             {linkPreview.image && (

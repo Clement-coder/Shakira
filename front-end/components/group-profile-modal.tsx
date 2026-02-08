@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, Profile, Conversation } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth-context';
-import { X, Users, ShieldCheck, Camera, Trash2, UserPlus } from 'lucide-react';
+import { X, Users, ShieldCheck, Camera, Trash2, UserPlus, LogOut } from 'lucide-react';
 import UserProfileModal from './user-profile-modal';
 import ConfirmModal from './confirm-modal';
 import AddMemberModal from './add-member-modal';
@@ -29,6 +29,7 @@ export default function GroupProfileModal({
   const [userToRemove, setUserToRemove] = useState<ParticipantWithProfile | null>(null);
   const [removing, setRemoving] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const currentUserIsAdmin = participants.find(p => p.profile.id === user?.id)?.is_admin || false;
 
@@ -113,6 +114,28 @@ export default function GroupProfileModal({
     setRemoving(false);
     setUserToRemove(null);
     fetchParticipants();
+  };
+
+  const handleExitGroup = async () => {
+    if (!user) return;
+
+    setRemoving(true); // Reusing removing state for loading indicator
+    await supabase
+      .from('conversation_participants')
+      .delete()
+      .eq('conversation_id', conversation.id)
+      .eq('user_id', user.id);
+
+    await supabase.from('messages').insert({
+      conversation_id: conversation.id,
+      sender_id: user.id,
+      content: `${user.username} has left the group.`,
+      message_type: 'text',
+    });
+
+    setRemoving(false);
+    setShowExitConfirm(false);
+    onClose(); // Redirects back to chat list
   };
 
   if (selectedUser) {
@@ -244,12 +267,13 @@ export default function GroupProfileModal({
           </div>
           
           <div className="p-4 border-t border-[var(--border)]">
-              <button
-                  onClick={onClose}
-                  className="w-full py-2.5 sm:py-3 bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors text-sm sm:text-base"
-              >
-                  Close
-              </button>
+            <button
+              onClick={() => setShowExitConfirm(true)}
+              className="w-full py-2.5 sm:py-3 bg-red-500 text-white font-medium rounded-lg hover:bg-red-600 transition-colors text-sm sm:text-base flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Exit Group
+            </button>
           </div>
         </div>
       </div>
@@ -275,6 +299,18 @@ export default function GroupProfileModal({
             fetchParticipants();
             setShowAddMemberModal(false);
           }}
+        />
+      )}
+      {showExitConfirm && (
+        <ConfirmModal
+          isOpen={showExitConfirm}
+          onClose={() => setShowExitConfirm(false)}
+          onConfirm={handleExitGroup}
+          title="Exit Group"
+          message={`Are you sure you want to exit "${conversation.group_name}"? You will be removed from this group.`}
+          confirmText="Exit"
+          confirmColor="red"
+          loading={removing}
         />
       )}
     </>
