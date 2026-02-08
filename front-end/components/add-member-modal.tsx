@@ -2,21 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, Profile } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth-context';
 import { X, Search, Check } from 'lucide-react';
 
-interface CreateGroupModalProps {
+interface AddMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentUserId: string;
-  onGroupCreated: (conversationId: string) => void;
+  conversationId: string;
+  onMembersAdded: () => void;
+  existingParticipants: string[];
 }
 
-export default function CreateGroupModal({ isOpen, onClose, currentUserId, onGroupCreated }: CreateGroupModalProps) {
+export default function AddMemberModal({ isOpen, onClose, conversationId, onMembersAdded, existingParticipants }: AddMemberModalProps) {
+  const { user } = useAuth();
   const [users, setUsers] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
-  const [groupName, setGroupName] = useState('');
   const [search, setSearch] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -28,10 +30,13 @@ export default function CreateGroupModal({ isOpen, onClose, currentUserId, onGro
     const { data } = await supabase
       .from('profiles')
       .select('*')
-      .neq('id', currentUserId)
+      .neq('id', user!.id)
       .order('username');
     
-    setUsers(data || []);
+    if (data) {
+      const usersToAdd = data.filter(u => !existingParticipants.includes(u.id));
+      setUsers(usersToAdd);
+    }
   };
 
   const toggleUser = (userId: string) => {
@@ -44,66 +49,50 @@ export default function CreateGroupModal({ isOpen, onClose, currentUserId, onGro
     setSelectedUsers(newSelected);
   };
 
-  const handleCreate = async () => {
-    if (!groupName.trim() || selectedUsers.size === 0) return;
+  const handleAdd = async () => {
+    if (selectedUsers.size === 0) return;
 
-    setCreating(true);
+    setAdding(true);
 
     try {
-      // Create conversation
-      const { data: newConv, error: convError } = await supabase
-        .from('conversations')
-        .insert({
-          is_group: true,
-          group_name: groupName.trim(),
-          created_by: currentUserId,
-        })
-        .select()
-        .single();
+      const newParticipants = Array.from(selectedUsers).map(userId => ({
+        conversation_id: conversationId,
+        user_id: userId,
+        is_admin: false,
+      }));
 
-      if (convError) throw convError;
-
-      // Add participants (including creator)
-      const participants = [
-        { conversation_id: newConv.id, user_id: currentUserId, is_admin: true },
-        ...Array.from(selectedUsers).map(userId => ({
-          conversation_id: newConv.id,
-          user_id: userId,
-          is_admin: false,
-        })),
-      ];
-
-      const { error: participantsError } = await supabase
+      await supabase
         .from('conversation_participants')
-        .insert(participants);
+        .insert(newParticipants);
 
-      if (participantsError) throw participantsError;
-
-const { data: creatorProfile } = await supabase
+      const { data: adderProfile } = await supabase
         .from('profiles')
         .select('username')
-        .eq('id', currentUserId)
+        .eq('id', user!.id)
         .single();
 
-      // Set localStorage notification for new members
       for (const userId of selectedUsers) {
-        localStorage.setItem(`newly-added-to-group-${newConv.id}`, creatorProfile?.username || 'Someone');
+        localStorage.setItem(`newly-added-to-group-${conversationId}`, adderProfile?.username || 'Someone');
+        const { data: newMemberProfile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', userId)
+          .single();
+
+        await supabase.from('messages').insert({
+          conversation_id: conversationId,
+          sender_id: user!.id,
+          content: `${newMemberProfile?.username} was added by ${adderProfile?.username}`,
+          message_type: 'text',
+        });
       }
 
-      // Send system message
-      await supabase.from('messages').insert({
-        conversation_id: newConv.id,
-        sender_id: currentUserId,
-        content: `Group "${groupName}" was created by ${creatorProfile?.username}`,
-        message_type: 'text',
-      });
-
-      onGroupCreated(newConv.id);
+      onMembersAdded();
       onClose();
     } catch (error) {
-      console.error('Error creating group:', error);
+      console.error('Error adding members:', error);
     } finally {
-      setCreating(false);
+      setAdding(false);
     }
   };
 
@@ -118,21 +107,13 @@ const { data: creatorProfile } = await supabase
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
       <div className="bg-[var(--bg-primary)] rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col animate-scale-in">
         <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
-          <h2 className="text-xl font-bold text-[var(--text-primary)]">Create Group</h2>
+          <h2 className="text-xl font-bold text-[var(--text-primary)]">Add Members</h2>
           <button onClick={onClose} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors">
             <X className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
         </div>
 
         <div className="p-4 space-y-4 border-b border-[var(--border)]">
-          <input
-            type="text"
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            placeholder="Group name"
-            className="w-full px-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:border-[var(--accent)] transition-colors"
-          />
-
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-secondary)]" />
             <input
@@ -152,24 +133,24 @@ const { data: creatorProfile } = await supabase
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {filteredUsers.map(user => (
+          {filteredUsers.map(u => (
             <button
-              key={user.id}
-              onClick={() => toggleUser(user.id)}
+              key={u.id}
+              onClick={() => toggleUser(u.id)}
               className="w-full flex items-center gap-3 p-3 hover:bg-[var(--bg-secondary)] rounded-lg transition-colors"
             >
               <div className="w-10 h-10 rounded-full bg-[var(--accent)] flex items-center justify-center text-white font-semibold">
-                {user.avatar_url ? (
-                  <img src={user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                {u.avatar_url ? (
+                  <img src={u.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
                 ) : (
-                  user.username[0].toUpperCase()
+                  u.username[0].toUpperCase()
                 )}
               </div>
               <div className="flex-1 text-left">
-                <p className="font-medium text-[var(--text-primary)]">{user.full_name || user.username}</p>
-                <p className="text-sm text-[var(--text-secondary)]">@{user.username}</p>
+                <p className="font-medium text-[var(--text-primary)]">{u.full_name || u.username}</p>
+                <p className="text-sm text-[var(--text-secondary)]">@{u.username}</p>
               </div>
-              {selectedUsers.has(user.id) && (
+              {selectedUsers.has(u.id) && (
                 <Check className="w-5 h-5 text-[var(--accent)]" />
               )}
             </button>
@@ -178,11 +159,11 @@ const { data: creatorProfile } = await supabase
 
         <div className="p-4 border-t border-[var(--border)]">
           <button
-            onClick={handleCreate}
-            disabled={creating || !groupName.trim() || selectedUsers.size === 0}
+            onClick={handleAdd}
+            disabled={adding || selectedUsers.size === 0}
             className="w-full py-3 bg-[var(--accent)] text-white font-medium rounded-lg hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {creating ? 'Creating...' : `Create Group (${selectedUsers.size})`}
+            {adding ? 'Adding...' : `Add Members (${selectedUsers.size})`}
           </button>
         </div>
       </div>
