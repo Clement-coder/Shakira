@@ -168,6 +168,12 @@ export default function ChatList({
 
     const validConversations = conversationsData.filter(Boolean) as ConversationWithDetails[];
 
+    validConversations.sort((a, b) => {
+      const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+      const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+      return timeB - timeA; // Sort in descending order
+    });
+
     const { data: favourites } = await supabase
       .from('favourite_conversations')
       .select('conversation_id')

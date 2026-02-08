@@ -8,6 +8,7 @@ import { formatDistanceToNow } from 'date-fns';
 import UserProfileModal from './user-profile-modal';
 import ForwardModal from './forward-modal';
 import GroupProfileModal from './group-profile-modal';
+import MessageActionsDropdown from './message-actions-dropdown';
 
 // Message Status Icon Component
 function MessageStatusIcon({ 
@@ -99,6 +100,7 @@ export default function ChatView({
   const inputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [participants, setParticipants] = useState<Profile[]>([]);
 
   // Auto-focus input on mount and when replying
   useEffect(() => {
@@ -208,6 +210,8 @@ export default function ChatView({
       setConversation(conv);
       if (!conv.is_group) {
         fetchOtherUser();
+      } else {
+        fetchParticipants();
       }
     }
   };
@@ -228,6 +232,17 @@ export default function ChatView({
         .single();
 
       setOtherUser(profile);
+    }
+  };
+
+  const fetchParticipants = async () => {
+    const { data } = await supabase
+      .from('conversation_participants')
+      .select('profiles(*)')
+      .eq('conversation_id', conversationId);
+
+    if (data) {
+      setParticipants(data.map((p: any) => p.profiles));
     }
   };
 
@@ -554,8 +569,9 @@ export default function ChatView({
       >
         {messages.map((msg, idx) => {
           const isSent = msg.sender_id === user!.id;
-          const showAvatar = idx === 0 || messages[idx - 1].sender_id !== msg.sender_id;
+          const showAvatar = idx === 0 || messages[idx - 1].sender_id !== msg.sender_id || (messages[idx - 1].sender_id === msg.sender_id && conversation?.is_group && messages[idx - 1].sender_id !== messages[idx].sender_id);
           const replyToMsg = msg.reply_to_message_id ? messages.find(m => m.id === msg.reply_to_message_id) : null;
+          const senderProfile = conversation?.is_group ? participants.find(p => p.id === msg.sender_id) : otherUser;
 
           return (
             <div
@@ -564,16 +580,21 @@ export default function ChatView({
             >
               {!isSent && showAvatar && (
                 <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
-                  {otherUser?.avatar_url ? (
-                    <img src={otherUser.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                  {senderProfile?.avatar_url ? (
+                    <img src={senderProfile.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
                   ) : (
-                    otherUser?.username[0].toUpperCase()
+                    senderProfile?.username?.[0].toUpperCase()
                   )}
                 </div>
               )}
               {!isSent && !showAvatar && <div className="w-8 sm:w-8" />}
               
               <div className="relative max-w-[75%] sm:max-w-[70%]">
+                {conversation?.is_group && !isSent && showAvatar && (
+                  <p className="text-xs text-[var(--text-secondary)] mb-1 ml-3 font-semibold">
+                    {senderProfile?.username}
+                  </p>
+                )}
                 <div
                   className={`inline-block px-3 sm:px-4 py-2 rounded-2xl ${
                     isSent
@@ -659,6 +680,17 @@ export default function ChatView({
                 </div>
 
               {/* Message Actions */}
+              {/* Visible on small screens */}
+              <div className={`absolute top-0 ${isSent ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} sm:hidden opacity-0 group-hover:opacity-100 transition-opacity gap-1 px-2`}>
+                <MessageActionsDropdown
+                  onReply={() => setReplyingTo(msg)}
+                  onCopy={() => copyMessage(msg.content || '', msg.id)}
+                  onForward={() => forwardMessage(msg)}
+                  onReact={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
+                  copySuccess={copySuccess === msg.id}
+                />
+              </div>
+              {/* Visible on medium and larger screens */}
               <div className={`absolute top-0 ${isSent ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity gap-1 px-2`}>
                 <button
                   onClick={() => setReplyingTo(msg)}
