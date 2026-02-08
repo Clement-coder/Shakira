@@ -10,6 +10,7 @@ interface MessageActionsDropdownProps {
   onForward: () => void;
   onReact: () => void;
   copySuccess: boolean;
+  onToggleOpen: (isOpen: boolean) => void;
 }
 
 export default function MessageActionsDropdown({
@@ -19,10 +20,15 @@ export default function MessageActionsDropdown({
   onForward,
   onReact,
   copySuccess,
+  onToggleOpen,
 }: MessageActionsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    onToggleOpen(isOpen);
+  }, [isOpen, onToggleOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -51,7 +57,7 @@ export default function MessageActionsDropdown({
     <div className="relative">
       <button
         ref={buttonRef}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen((prev) => !prev)}
         className="p-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] rounded-full transition-colors shadow-md"
         title="More actions"
       >
@@ -61,7 +67,7 @@ export default function MessageActionsDropdown({
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute right-0 top-full mt-1 w-fit bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg shadow-lg z-20 animate-scale-in origin-top-right"
+          className="absolute right-0 top-full mt-1 w-fit bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg shadow-lg z-50 animate-scale-in origin-top-right"
         >
           <button
             onClick={() => handleActionClick(onReply)}

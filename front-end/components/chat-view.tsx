@@ -3,23 +3,24 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase, Profile, Message, Conversation } from '@/lib/supabase';
-import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck, ArrowDown, ArrowUp, X } from 'lucide-react';
+import { ArrowLeft, Send, Image as ImageIcon, Paperclip, Smile, RefreshCw, Check, CheckCheck, ArrowDown, ArrowUp, X, MoreVertical } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import UserProfileModal from './user-profile-modal';
 import ForwardModal from './forward-modal';
 import GroupProfileModal from './group-profile-modal';
 import MessageActionsDropdown from './message-actions-dropdown';
+import MessageActionsModal from './message-actions-modal';
 
 // Message Status Icon Component
-function MessageStatusIcon({ 
-  messageId, 
-  conversationId, 
+function MessageStatusIcon({
+  messageId,
+  conversationId,
   otherUserId,
   messageTime,
   otherUserOnline
-}: { 
-  messageId: string; 
-  conversationId: string; 
+}: {
+  messageId: string;
+  conversationId: string;
   otherUserId: string;
   messageTime: string;
   otherUserOnline: boolean;
@@ -35,11 +36,11 @@ function MessageStatusIcon({
         .eq('conversation_id', conversationId)
         .eq('user_id', otherUserId)
         .single();
-      
+
       if (data && data.last_viewed_at) {
         const lastViewedTime = new Date(data.last_viewed_at).getTime();
         const msgTime = new Date(messageTime).getTime();
-        
+
         // Message is read if other user viewed conversation AFTER this message was sent
         if (lastViewedTime > msgTime) {
           setIsRead(true);
@@ -48,7 +49,7 @@ function MessageStatusIcon({
     };
 
     checkReadStatus();
-    
+
     // Check every 3 seconds for read status
     const interval = setInterval(checkReadStatus, 3000);
     return () => clearInterval(interval);
@@ -58,12 +59,12 @@ function MessageStatusIcon({
   if (isRead) {
     return <CheckCheck className="w-3 h-3 text-blue-400" />;
   }
-  
+
   // Delivered (gray double check) - user is online
   if (otherUserOnline) {
     return <CheckCheck className="w-3 h-3 text-white/70" />;
   }
-  
+
   // Sent (single gray check) - user is offline
   return <Check className="w-3 h-3 text-white/70" />;
 }
@@ -101,6 +102,7 @@ export default function ChatView({
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [participants, setParticipants] = useState<Profile[]>([]);
+  const [showActionsModalForMessage, setShowActionsModalForMessage] = useState<Message | null>(null); // New state for message actions modal
 
   // Auto-focus input on mount and when replying
   useEffect(() => {
@@ -120,7 +122,7 @@ export default function ChatView({
       .eq('conversation_id', conversationId)
       .eq('user_id', user!.id)
       .eq('is_read', false);
-    
+
     if (data) {
       setNotifications(data);
     }
@@ -130,7 +132,7 @@ export default function ChatView({
     fetchConversation();
     fetchMessages();
     fetchNotifications();
-    
+
     // Mark conversation as viewed in Supabase
     const markAsViewed = async () => {
       await supabase
@@ -141,13 +143,13 @@ export default function ChatView({
           last_viewed_at: new Date().toISOString(),
         });
     };
-    
+
     markAsViewed();
-    
+
     // Mark conversation as read - save current timestamp (localStorage backup)
     const lastReadKey = `last_read_${conversationId}_${user!.id}`;
     localStorage.setItem(lastReadKey, new Date().toISOString());
-    
+
     // Load draft from localStorage
     const savedDraft = localStorage.getItem(`draft_${conversationId}`);
     if (savedDraft) {
@@ -198,7 +200,6 @@ export default function ChatView({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
   const fetchConversation = async () => {
     const { data: conv } = await supabase
       .from('conversations')
@@ -681,14 +682,13 @@ export default function ChatView({
               {/* Message Actions */}
               {/* Visible on small screens */}
               <div className={`absolute top-0 ${isSent ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} sm:hidden transition-opacity gap-1 px-2`}>
-                <MessageActionsDropdown
-                  messageId={msg.id}
-                  onReply={() => setReplyingTo(msg)}
-                  onCopy={() => copyMessage(msg.content || '', msg.id)}
-                  onForward={() => forwardMessage(msg)}
-                  onReact={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
-                  copySuccess={copySuccess === msg.id}
-                />
+                <button
+                  onClick={() => setShowActionsModalForMessage(msg)}
+                  className="p-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] rounded-full transition-colors shadow-md"
+                  title="More actions"
+                >
+                  <MoreVertical className="w-4 h-4 text-[var(--text-primary)]" />
+                </button>
               </div>
               {/* Visible on medium and larger screens */}
               <div className={`absolute top-0 ${isSent ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} hidden sm:flex opacity-0 group-hover:opacity-100 transition-opacity gap-1 px-2`}>
@@ -904,6 +904,32 @@ export default function ChatView({
           }}
           messageContent={forwardingMessage.content || ''}
           currentUserId={user!.id}
+        />
+      )}
+
+      {showActionsModalForMessage && (
+        <MessageActionsModal
+          isOpen={!!showActionsModalForMessage}
+          onClose={() => setShowActionsModalForMessage(null)}
+          messageContent={showActionsModalForMessage.content || ''}
+          messageId={showActionsModalForMessage.id}
+          onReply={() => {
+            setReplyingTo(showActionsModalForMessage);
+            setShowActionsModalForMessage(null);
+          }}
+          onCopy={async () => {
+            await copyMessage(showActionsModalForMessage.content || '', showActionsModalForMessage.id);
+            setShowActionsModalForMessage(null);
+          }}
+          onForward={() => {
+            forwardMessage(showActionsModalForMessage);
+            setShowActionsModalForMessage(null);
+          }}
+          onReact={() => {
+            setShowEmojiPicker(showActionsModalForMessage.id);
+            setShowActionsModalForMessage(null);
+          }}
+          copySuccess={copySuccess === showActionsModalForMessage.id}
         />
       )}
     </div>
