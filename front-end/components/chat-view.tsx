@@ -96,38 +96,72 @@ export default function ChatView({
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [participants, setParticipants] = useState<Profile[]>([]);
-  const [showActionsModalForMessage, setShowActionsModalForMessage] = useState<Message | null>(null); // New state for message actions modal
-
-  // Auto-focus input on mount and when replying
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    if (replyingTo) {
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const formRef = useRef<HTMLFormElement>(null); // New ref for the form
+    const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [participants, setParticipants] = useState<Profile[]>([]);
+    const [showActionsModalForMessage, setShowActionsModalForMessage] = useState<Message | null>(null); // New state for message actions modal
+  
+    // Auto-focus input on mount and when replying
+    useEffect(() => {
       inputRef.current?.focus();
-    }
-  }, [replyingTo]);
-
-  const fetchNotifications = async () => {
-    const { data } = await supabase
-      .from('group_notifications')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .eq('user_id', user!.id)
-      .eq('is_read', false);
-
-    if (data) {
-      setNotifications(data);
-    }
-  };
-
+    }, []);
+  
+    useEffect(() => {
+      if (replyingTo) {
+        inputRef.current?.focus();
+      }
+    }, [replyingTo]);
+  
+    // Handle visual viewport changes for mobile keyboard
+    useEffect(() => {
+      if (!window.visualViewport || !formRef.current || !messagesContainerRef.current) {
+        return;
+      }
+  
+      const visualViewport = window.visualViewport; // Assign to local variable
+      const formElement = formRef.current;
+      const messagesContainerElement = messagesContainerRef.current;
+      let initialViewportHeight = visualViewport.height;
+  
+      const handleViewportResize = () => {
+        const viewportHeight = visualViewport.height;
+        const keyboardHeight = initialViewportHeight - viewportHeight;
+  
+        if (keyboardHeight > 0) {
+          // Keyboard is open
+          formElement.style.bottom = `${keyboardHeight}px`;
+          messagesContainerElement.style.paddingBottom = `${formElement.offsetHeight + keyboardHeight}px`;
+          messagesContainerElement.scrollTop = messagesContainerElement.scrollHeight; // Scroll to bottom
+        } else {
+          // Keyboard is closed
+          formElement.style.bottom = '0px';
+          messagesContainerElement.style.paddingBottom = '0px'; // Reset padding
+        }
+      };
+  
+      visualViewport.addEventListener('resize', handleViewportResize);
+  
+      return () => {
+        visualViewport.removeEventListener('resize', handleViewportResize);
+      };
+    }, []); // Empty dependency array means this runs once on mount and cleanup on unmount
+  
+    const fetchNotifications = async () => {
+      const { data } = await supabase
+        .from('group_notifications')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .eq('user_id', user!.id)
+        .eq('is_read', false);
+      
+      if (data) {
+        setNotifications(data);
+      }
+    };
   useEffect(() => {
     fetchConversation();
     fetchMessages();
@@ -500,7 +534,7 @@ export default function ChatView({
   const subHeaderText = conversation?.is_group ? 'Group chat' : (otherUser?.is_online ? 'Online' : `Last seen ${formatDistanceToNow(new Date(otherUser?.last_seen || 0), { addSuffix: true })}`);
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-full">
       {notifications.map(notification => (
         <div key={notification.id} className="bg-blue-500 text-white text-sm text-center p-2 relative">
           {notification.message}
@@ -794,7 +828,7 @@ export default function ChatView({
       )}
 
       {/* Input - Sticky */}
-      <form onSubmit={sendMessage} className="bg-[var(--bg-primary)] border-t border-[var(--border)] message-input-form flex-shrink-0">
+      <form ref={formRef} onSubmit={sendMessage} className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border)] message-input-form">
         {linkPreview && (
           <div className="px-4 py-2 bg-[var(--bg-secondary)] flex items-center gap-3">
             {linkPreview.image && (
@@ -867,7 +901,7 @@ export default function ChatView({
             onChange={handleInputChange}
             onFocus={() => inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
             placeholder="Type a message..."
-            className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-full text-[var(--text-primary)] text-sm sm:text-base focus:border-[var(--accent)] transition-colors"
+            className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-full text-[var(--text-primary)] text-base focus:border-[var(--accent)] transition-colors"
           />
           <button
             type="submit"
